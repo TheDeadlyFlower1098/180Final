@@ -3,7 +3,26 @@
     margin: 0;
     padding: 0;
   }
-  
+html, body {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  flex: 1;
+}
+
+.site-footer {
+  background-color: #f8f8f8;
+  padding: 20px 0;
+  text-align: center;
+  font-size: 14px;
+  color: #555;
+  border-top: 1px solid #ddd;
+}
+
   body {
     font-family: 'Segoe UI', sans-serif;
   }
@@ -143,4 +162,92 @@
 .product-card img {
   width: 100%;
   border-radius: 8px;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  padding: 5px;
+}
+
+.search-bar input[type="text"] {
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px 0 0 4px;
+  outline: none;
+}
+
+.search-bar button {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  background-color: #ff69b4;
+  color: white;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+}
+
+.search-bar button:hover {
+  background-color: #ff1493;
+}
+
+.search-results{
+  text-align: center;
+}
+
+.signup-form {
+  max-width: 450px;
+  margin: 60px auto;
+  padding: 30px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.signup-form h2 {
+  text-align: center;
+  margin-bottom: 25px;
+  color: #333;
+}
+
+.signup-form label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: bold;
+  color: #555;
+}
+
+.signup-form input,
+.signup-form select {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.signup-form input:focus,
+.signup-form select:focus {
+  border-color: #ff69b4;
+  outline: none;
+  box-shadow: 0 0 5px rgba(255,105,180,0.3);
+}
+
+.signup-form button {
+  width: 100%;
+  padding: 12px;
+  background-color: #ff69b4;
+  border: none;
+  color: #fff;
+  font-weight: bold;
+  font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.signup-form button:hover {
+  background-color: #ff1493;
 }
