@@ -1,0 +1,215 @@
+CREATE DATABASE MultiVendorEcommerce;
+USE MultiVendorEcommerce;
+
+-- User Table (Base Table)
+CREATE TABLE User (
+    UserID INT AUTO_INCREMENT PRIMARY KEY,
+    Name VARCHAR(100),
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    Username VARCHAR(50) NOT NULL,
+    Password VARCHAR(100) NOT NULL
+);
+
+-- Admin Table
+CREATE TABLE Admin (
+    AdminID INT PRIMARY KEY,
+    FOREIGN KEY (AdminID) REFERENCES User(UserID)
+);
+
+-- Vendor Table
+CREATE TABLE Vendor (
+    VendorID INT PRIMARY KEY,
+    FOREIGN KEY (VendorID) REFERENCES User(UserID)
+);
+
+-- Customer Table
+CREATE TABLE Customer (
+    CustomerID INT PRIMARY KEY,
+    FOREIGN KEY (CustomerID) REFERENCES User(UserID)
+);
+
+-- Products Table
+CREATE TABLE Products (
+    ProductID INT AUTO_INCREMENT PRIMARY KEY,
+    Title VARCHAR(200),
+    Description TEXT,
+    WarrantyPeriod INT,
+    Color VARCHAR(50),
+    Size VARCHAR(50),
+    InventoryAmount INT,
+    OriginalPrice DECIMAL(10,2),
+    DiscountedPrice DECIMAL(10,2),
+    DiscountTime DATETIME,
+    VendorID INT,
+    AdminID INT,
+    FOREIGN KEY (VendorID) REFERENCES Vendor(VendorID),
+    FOREIGN KEY (AdminID) REFERENCES Admin(AdminID)
+);
+
+-- Product Images Table
+CREATE TABLE ProductImages (
+    ImageID INT AUTO_INCREMENT PRIMARY KEY,
+    ProductID INT,
+    ImageURL VARCHAR(350),
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+);
+
+-- OrderCart Table
+CREATE TABLE OrderCart (
+    OrderID INT AUTO_INCREMENT PRIMARY KEY,
+    CustomerID INT,
+    DatePlaced DATETIME,
+    Status ENUM('pending', 'confirmed', 'handed to delivery partner', 'shipped'),
+    Price DECIMAL(10,2),
+    FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID)
+);
+
+-- Order Items Table (for multiple items in one order)
+CREATE TABLE OrderItems (
+    OrderID INT,
+    ProductID INT,
+    Quantity INT,
+    PRIMARY KEY (OrderID, ProductID),
+    FOREIGN KEY (OrderID) REFERENCES OrderCart(OrderID),
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+);
+
+-- Review Table
+CREATE TABLE Review (
+    ReviewID INT AUTO_INCREMENT PRIMARY KEY,
+    CustomerID INT,
+    ProductID INT,
+    Rating INT CHECK (Rating BETWEEN 1 AND 5),
+    Description TEXT,
+    ImageURL VARCHAR(255),
+    Date DATE,
+    FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID),
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+);
+
+-- Returns Table
+CREATE TABLE Returns (
+    ReturnID INT AUTO_INCREMENT PRIMARY KEY,
+    CustomerID INT,
+    ProductID INT,
+    Date DATE,
+    Title VARCHAR(100),
+    Status ENUM('pending', 'rejected', 'confirmed', 'processing', 'complete'),
+    Description TEXT,
+    Demand ENUM('return', 'refund', 'warranty'),
+    FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID),
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+);
+
+-- Chat Table
+CREATE TABLE Chat (
+    ChatID INT AUTO_INCREMENT PRIMARY KEY,
+    SenderID INT,
+    ReceiverID INT,
+    Message TEXT,
+    ImageURL VARCHAR(255),
+    Timestamp DATETIME,
+    FOREIGN KEY (SenderID) REFERENCES User(UserID),
+    FOREIGN KEY (ReceiverID) REFERENCES User(UserID)
+);
+
+-- Users (Admins, Vendors, Customers)
+INSERT INTO User (Name, Email, Username, Password) VALUES
+('Alice Smith', 'alice@admin.com', 'alice_admin', 'pass123'),
+('Bob Jones', 'bob@admin.com', 'bob_admin', 'pass123'),
+('Victor Hugo', 'victor@vendor.com', 'victor_vend', 'vendorpass'),
+('Vanessa Ray', 'vanessa@vendor.com', 'vanessa_vend', 'vendorpass'),
+('Vin Diesel', 'vin@vendor.com', 'vin_vend', 'vendorpass'),
+('Charlie Day', 'charlie@cust.com', 'charlie_cust', 'custpass'),
+('Dana White', 'dana@cust.com', 'dana_cust', 'custpass'),
+('Eli Brown', 'eli@cust.com', 'eli_cust', 'custpass'),
+('Fay Miller', 'fay@cust.com', 'fay_cust', 'custpass'),
+('George Lee', 'george@cust.com', 'george_cust', 'custpass');
+
+-- Admins
+INSERT INTO Admin (AdminID) VALUES (1), (2);
+INSERT INTO Admin (AdminID) VALUES (3);
+
+-- Vendors
+INSERT INTO Vendor (VendorID) VALUES (3), (4), (5);
+INSERT INTO Vendor (VendorID) VALUES (6);
+
+-- Customers
+INSERT INTO Customer (CustomerID) VALUES (6), (7), (8), (9), (10);
+INSERT INTO Customer (CustomerID) VALUES (11);
+
+-- Products
+INSERT INTO Products (
+    Title, Description, WarrantyPeriod, Color, Size, InventoryAmount, OriginalPrice, DiscountedPrice, DiscountTime, VendorID, AdminID
+) VALUES
+('Rose Bouquet', 'Freshly hand-picked red roses in a charming bouquet.', 7, 'Red', 'Medium', 50, 29.99, 24.99, NOW(), 3, 1),
+('Lavender Scented Candles', 'Eco-friendly candles with calming lavender aroma.', 30, 'Purple', 'Small', 100, 14.99, 12.99, NOW(), 4, 1),
+('Bamboo Plant in Ceramic Pot', 'Live bamboo plant perfect for home or office décor.', 90, 'Green', 'Small', 30, 19.99, 17.49, NOW(), 5, 1),
+('Floral Sketch Journal', 'Hardcover notebook with botanical cover design.', 0, 'White/Floral', 'A5', 70, 12.50, 10.00, NOW(), 3, 1),
+('Wildflower Seeds Pack', 'A mix of perennial wildflower seeds for your garden.', 0, 'Mixed', 'Packet', 200, 9.99, 7.99, NOW(), 4, 1),
+('Sunflower Wall Art', 'Framed artwork featuring vibrant sunflowers.', 0, 'Yellow', '16x20 inches', 40, 39.99, 35.00, NOW(), 5, 1),
+('Chamomile Tea Set', 'Organic chamomile flower tea with infuser included.', 0, 'Brown', 'Box', 60, 22.99, 18.99, NOW(), 3, 1),
+('Aloe Vera Gel', 'Natural skincare gel from 100% pure aloe vera.', 365, 'Green', '250ml', 80, 15.99, 13.49, NOW(), 4, 1),
+('Herbal Bath Salts', 'Relaxing bath salts with rose and lavender extracts.', 0, 'Pink', '500g', 90, 18.99, 15.99, NOW(), 5, 1),
+('Daisy Embroidered Tote Bag', 'Reusable canvas bag with hand-embroidered daisies.', 0, 'Beige', 'Standard', 120, 21.99, 17.99, NOW(), 3, 1),
+('Eucalyptus Shower Spray', 'Aromatherapy spray for a refreshing shower experience.', 60, 'Clear', '150ml', 70, 14.99, 12.49, NOW(), 4, 1),
+('Succulent Variety Set', 'Set of 5 assorted succulents in mini clay pots.', 30, 'Green', 'Small', 55, 34.99, 29.99, NOW(), 5, 1),
+('Pressed Flower Phone Case', 'Transparent phone case with real pressed flowers.', 0, 'Clear/Floral', 'Universal', 75, 16.50, 13.50, NOW(), 3, 1),
+('Cedarwood Essential Oil', 'Pure cedarwood oil for relaxation and aromatherapy.', 365, 'Amber', '30ml', 60, 11.99, 9.99, NOW(), 4, 1),
+('Botanical Greeting Cards Set', 'Set of 10 floral-themed cards with envelopes.', 0, 'Mixed', 'A6', 110, 13.99, 11.99, NOW(), 5, 1),
+('Flower Print Scarf', 'Lightweight scarf featuring pastel floral prints.', 0, 'Multi-color', 'One Size', 45, 19.99, 16.99, NOW(), 3, 1),
+('Eco Terrarium Kit', 'DIY terrarium with moss, stones, and miniature succulents.', 0, 'Green', 'Box', 35, 42.50, 38.00, NOW(), 4, 1),
+('Hibiscus Hair Oil', 'Nourishing hair oil enriched with hibiscus extracts.', 365, 'Red', '200ml', 90, 17.99, 15.49, NOW(), 5, 1),
+('Magnolia Room Spray', 'Natural room spray for fresh floral ambiance.', 60, 'White', '250ml', 85, 12.99, 10.99, NOW(), 3, 1),
+('Rose Quartz Planter', 'Mini ceramic planter embedded with rose quartz.', 0, 'Pink', 'Small', 40, 25.99, 22.99, NOW(), 4, 1);
+
+SELECT * FROM Products;
+
+-- Product Images
+INSERT INTO ProductImages (ProductID, ImageURL) VALUES
+(1, 'https://terraflowersmiami.com/cdn/shop/files/D20CFB76-ED53-4D33-A8BD-0B0E961F00D0_1400x.png?v=1705646939'),
+(2, 'https://fontanacandlecompany.com/cdn/shop/files/spring2025onwhite-05694.jpg?v=1738856227&width=3000'),
+(3, 'https://images.thdstatic.com/productImages/48a577d7-40a8-4901-aed7-ac3724367d3b/svn/arcadia-garden-products-house-plants-lv38-64_600.jpg'),
+(4, 'https://images.squarespace-cdn.com/content/v1/63ac830e2d405340aded0861/1683142269042-541ZNW45XXCJDCTCZ6TP/journal_notebook_sketchbook_blank_inside_1.jpg?format=1000w'),
+(5, 'https://www.michiganwildflowerfarm.com/wp-content/uploads/2017/12/IMG_20180416_105909-3.jpg'),
+(6, 'https://m.media-amazon.com/images/I/81XuqcIVE+L.jpg'),
+(7, 'https://img.freepik.com/premium-photo/chamomile-tea-set-cookware-beverage-pottery_53876-240732.jpg?w=360'),
+(8, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQXwxx6RZUBbizk3lEOUrnPrlzaXW0CoDT3CA&s'),
+(9, 'https://i.etsystatic.com/27128876/r/il/61aa0b/4911814943/il_570xN.4911814943_l5mj.jpg'),
+(10, 'https://rumoonhandmade.com/cdn/shop/files/Photoroom_013_20250121_100323.jpg?v=1737477338&width=2048'),
+(11, 'https://eurospaaromatics.myshopify.com/cdn/shop/products/pureEO-8oz_d047749c-a4f5-4938-b464-83da9f1eabb1_1000x1000.jpg?v=1669588835'),
+(12, 'https://i.etsystatic.com/17229952/r/il/8078d9/3008299856/il_570xN.3008299856_ibzn.jpg'),
+(13, 'https://m.media-amazon.com/images/I/81RU5hphy9L.jpg'),
+(14, 'https://m.media-amazon.com/images/S/assets.wholefoodsmarket.com/PIE/product/64cd5f1f60d95632116a9b7b_2023-cen-ecommerce-directship-essentialoil-texascedarwood-1oz._FMwebp__SR600,600_.jpg'),
+(15, 'https://i.etsystatic.com/10728526/r/il/c93b14/1595868396/il_570xN.1595868396_pk8b.jpg'),
+(16, 'https://m.media-amazon.com/images/I/61gyOI6tlvL._AC_UY1000_.jpg'),
+(17, 'https://m.media-amazon.com/images/I/71e9qJG9tEL._AC_UF1000,1000_QL80_.jpg'),
+(18, 'https://m.media-amazon.com/images/I/51ePqIAtksL.jpg'),
+(19, 'https://i5.walmartimages.com/seo/Hearth-Hand-with-Magnolia-Air-Refresher-Room-Spray-Salt-4-fl-oz-118-2mL_3b8e670b-2054-45c9-be00-1b1d53d8db17.d84d452a16a56e536ff2fac7182b6549.jpeg'),
+(20, 'https://seamanschepps.com/cdn/shop/files/lgpotrq_2d16ee8d-032d-4633-b10a-2fafb748d6c3.jpg?v=1690558445&width=4320');
+
+-- Add an order to OrderCart
+INSERT INTO OrderCart (CustomerID, DatePlaced, Status, Price) 
+VALUES (6, NOW(), 'pending', 75.50);
+
+-- Add order items for the order
+INSERT INTO OrderItems (OrderID, ProductID, Quantity) 
+VALUES (1, 1, 2), (1, 2, 1);  -- Assuming OrderID 1 and ProductIDs 1, 2
+
+-- Add a review for a product
+INSERT INTO Review (CustomerID, ProductID, Rating, Description, ImageURL, Date)
+VALUES (6, 1, 5, 'Amazing roses! Perfect for any occasion.', 'https://example.com/image.jpg', CURDATE());
+
+-- Add a return request
+INSERT INTO Returns (CustomerID, ProductID, Date, Title, Status, Description, Demand) 
+VALUES (6, 1, CURDATE(), 'Rose Bouquet - Damaged', 'pending', 'The flowers were wilted upon arrival.', 'return');
+
+-- Add a chat message between users
+INSERT INTO Chat (SenderID, ReceiverID, Message, ImageURL, Timestamp) 
+VALUES (6, 1, 'Hi, I have a question about the order status.', 'https://example.com/chat-image.jpg', NOW());
+
+-- Check for CustomerID = 6
+SELECT * FROM Customer WHERE CustomerID = 6;
+
+-- Check for ProductID = 1
+SELECT * FROM Products WHERE ProductID = 1;

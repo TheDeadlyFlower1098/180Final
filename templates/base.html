@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Bloom</title>
-    <link rel="stylesheet" href="../static/image/style/base.css">
+    <link rel="stylesheet" href="../static/style/base.css">
 </head>
 <body>
 
@@ -12,12 +12,16 @@
   <div class="logo">Bloom 🌸</div>
   <div class="menu-toggle" onclick="toggleMenu()">☰</div>
   <div class="nav-links" id="navLinks">
-    <a href="#">Home</a>
+    <a href="/">Home</a>
     <a href="#">Products</a>
     <a href="#">Categories</a>
     <a href="#">Cart 🛒</a>
-    <a href="#">Sign In</a>
+    <a href="/signup">Sign In</a>
   </div>
+  <form action="{{ url_for('search') }}" method="GET" class="search-bar">
+    <input type="text" name="q" placeholder="Search products..." required />
+    <button type="submit">🔍</button>
+  </form>
 </nav>
 
 <div class="container">
