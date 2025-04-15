@@ -10,7 +10,15 @@ conn = engine.connect()
 
 @app.route("/")
 def home():
-    return render_template("home.html")
+    query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+        LIMIT 5
+    """)
+    result = conn.execute(query)
+    products = result.fetchall()
+    return render_template("home.html", products=products)
 
 @app.route("/search")
 def search():
