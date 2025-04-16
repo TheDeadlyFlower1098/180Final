@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, request, redirect, url_for
 from sqlalchemy import create_engine, text
 import hashlib
@@ -10,6 +11,10 @@ conn = engine.connect()
 
 @app.route("/")
 def home():
+    return render_template("home_main.html")
+
+@app.route("/home")
+def home2():
     return render_template("home.html")
 
 @app.route("/search")
@@ -91,7 +96,7 @@ def login():
                 }).fetchone()
 
                 if result:
-                    return f"<h3>Welcome back, {email}!</h3><a href='{url_for('home')}'>Go to Home</a>"
+                     return render_template("home.html", username=result[1])
                 else:
                     return f"<h3>Invalid email or password.</h3><a href='{url_for('login')}'>Try again</a>"
 
