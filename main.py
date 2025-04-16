@@ -1,5 +1,5 @@
 
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 from sqlalchemy import create_engine, text
 import hashlib
 
@@ -8,6 +8,7 @@ app = Flask(__name__)
 con_str = "mysql://root:cset155@localhost/MultiVendorEcommerce"
 engine = create_engine(con_str, echo=True)
 conn = engine.connect()
+app.secret_key = "idkwhattoput"
 
 @app.route("/")
 def home():
@@ -15,7 +16,11 @@ def home():
 
 @app.route("/home")
 def home2():
-    return render_template("home.html")
+    username = session.get("username")
+    if not username:
+        return redirect(url_for("login"))
+    return render_template("home.html", username=username)
+
 
 @app.route("/search")
 def search():
@@ -94,9 +99,9 @@ def login():
                     "email": email,
                     "password": hashed_password
                 }).fetchone()
-
                 if result:
-                     return render_template("home.html", username=result[1])
+                    session["username"] = result[1]
+                    return redirect(url_for("home2"))
                 else:
                     return f"<h3>Invalid email or password.</h3><a href='{url_for('login')}'>Try again</a>"
 
