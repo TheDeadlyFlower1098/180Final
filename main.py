@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for
+
+from flask import Flask, render_template, request, redirect, url_for, session
 from sqlalchemy import create_engine, text
 import hashlib
 
@@ -7,18 +8,28 @@ app = Flask(__name__)
 con_str = "mysql://root:cset155@localhost/MultiVendorEcommerce"
 engine = create_engine(con_str, echo=True)
 conn = engine.connect()
+app.secret_key = "idkwhattoput"
 
 @app.route("/")
 def home():
-    query = text("""
+    return render_template("home_main.html")
+
+@app.route("/home")
+def home2():
+  
+   query = text("""
         SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
         FROM Products p
         LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
         LIMIT 5
     """)
+    
     result = conn.execute(query)
     products = result.fetchall()
-    return render_template("home.html", products=products)
+    username = session.get("username")
+    if not username:
+        return redirect(url_for("login"))
+    return render_template("home.html", username=username)
 
 @app.route("/search")
 def search():
@@ -97,9 +108,9 @@ def login():
                     "email": email,
                     "password": hashed_password
                 }).fetchone()
-
                 if result:
-                    return f"<h3>Welcome back, {email}!</h3><a href='{url_for('home')}'>Go to Home</a>"
+                    session["username"] = result[1]
+                    return redirect(url_for("home2"))
                 else:
                     return f"<h3>Invalid email or password.</h3><a href='{url_for('login')}'>Try again</a>"
 
