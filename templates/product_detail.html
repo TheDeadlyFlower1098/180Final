@@ -1,0 +1,20 @@
+{% extends "base2.html" %}
+
+{% block content %}
+<div class="product-detail-sect">
+    <div class="product-detail">
+        <img src="{{ product.ImageURL if product.ImageURL else 'https://via.placeholder.com/150' }}" alt="{{ product.Title }}">
+        <h2 class="product-title">{{ product.Title }}</h2>
+        <p class="product-description">{{ product.Description }}</p>
+        <p class="product-category">Category: {{ product.Category }}</p>
+        <p class="product-colors">Available Colors: {{ product.AvailableColors }}</p>
+        <p class="product-sizes">Available Sizes: {{ product.AvailableSizes }}</p>
+        <p class="product-price">Price: ${{ '%.2f'|format(product.DiscountedPrice) }}</p>
+        <p class="product-warranty">Warranty: {{ product.WarrantyPeriod }}</p>
+        <p class="product-inventory">In Stock: {{ product.Inventory }}</p>
+        <form action="{{ url_for('add_to_cart', product_id=product.ProductID) }}" method="POST">
+            <button type="submit">Add to Cart</button>
+        </form>        
+    </div>
+</div>
+{% endblock %}
