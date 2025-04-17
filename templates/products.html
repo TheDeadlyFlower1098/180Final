@@ -1,0 +1,21 @@
+{% extends "base2.html" %}
+
+{% block content %}
+<div class="products-sect">
+    <h2 class="section-title">All Products</h2>
+    <div class="product-grid">
+        {% for product in products %}
+        <div class="product-card">
+            <img src="{{ product.ImageURL if product.ImageURL else 'https://via.placeholder.com/150' }}" alt="{{ product.Title }}">
+            <h3>{{ product.Title }}</h3>
+            <p class="product-price">${{ '%.2f'|format(product.DiscountedPrice) }}</p>
+            <p class="product-category">Category: {{ product.Category }}</p>
+            <p class="product-colors">Available Colors: {{ product.AvailableColors }}</p>
+            <p class="product-sizes">Available Sizes: {{ product.AvailableSizes }}</p>
+            <p class="product-inventory">In Stock: {{ product.Inventory }}</p>
+            <a href="{{ url_for('product_detail', product_id=product.ProductID) }}" class="cta-button">View Details</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
