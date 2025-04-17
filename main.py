@@ -16,11 +16,20 @@ def home():
 
 @app.route("/home")
 def home2():
+  
+   query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+        LIMIT 5
+    """)
+    
+    result = conn.execute(query)
+    products = result.fetchall()
     username = session.get("username")
     if not username:
         return redirect(url_for("login"))
     return render_template("home.html", username=username)
-
 
 @app.route("/search")
 def search():

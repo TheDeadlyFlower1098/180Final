@@ -6,6 +6,17 @@
   <p>Discover beauty in every product. Shop our latest collections now!</p>
   <a href="#" class="cta-button">Shop Now</a>
 </div>
+
+<div class="featured-section">
+  <h2>Featured Products</h2>
+  <div class="product-grid">
+    {% for product in products %}
+    <div class="product-card">
+      <img src="{{ product.ImageURL if product.ImageURL else 'https://via.placeholder.com/150' }}" alt="{{ product.Title }}">
+      <h3>{{ product.Title }}</h3>
+      <p>${{ '%.2f'|format(product.DiscountedPrice) }}</p>
+    </div>
+    {% endfor %}
   </div>
 </div>
 {% endblock %}
