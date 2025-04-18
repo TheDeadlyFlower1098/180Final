@@ -16,11 +16,10 @@ def home():
 
 @app.route("/home")
 def home2():
-    username = session.get("username") or session.get("vendor_name")
+    username = session.get("username")
     if not username:
         return redirect(url_for("login"))
     return render_template("home.html", username=username)
-
 
 
 @app.route("/search")
