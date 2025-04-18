@@ -3,6 +3,21 @@
 {% block content %}
 <div class="search-results">
   <h2>Search Results for "{{ query }}"</h2>
-  <p>No matching products found.</p>
+
+  {% if products %}
+    <div class="product-grid">
+      {% for product in products %}
+        <div class="product-card">
+          <h3>{{ product.Title }}</h3>
+          <img src="{{ product.ImageURL }}" alt="{{ product.Title }}" class="product-img">
+          <p>{{ product.Description }}</p>
+          <p><strong>Price:</strong> ${{ "%.2f"|format(product.OriginalPrice) }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>No matching products found.</p>
+  {% endif %}
 </div>
 {% endblock %}
+

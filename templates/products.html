@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Our Products</h1>
+
+<div class="product-grid">
+  {% for product in products %}
+    <div class="product-card">
+      <h3>{{ product.Title }}</h3>
+      
+      {% if product.ImageURL %}
+        <img src="{{ product.ImageURL }}" alt="{{ product.Title }}" class="product-img">
+      {% endif %}
+
+      <p><strong>Description:</strong> {{ product.Description }}</p>
+      <p><strong>Color:</strong> {{ product.Color }}</p>
+      <p><strong>Size:</strong> {{ product.Size }}</p>
+      <p><strong>Warranty:</strong> {{ product.WarrantyPeriod }} months</p>
+      <p><strong>In Stock:</strong> {{ product.InventoryAmount }}</p>
+
+      {% if product.DiscountedPrice is not none and product.OriginalPrice is not none and product.DiscountedPrice < product.OriginalPrice %}
+        <p class="price">
+          <span class="original-price">${{ '%.2f'|format(product.OriginalPrice) }}</span>
+          <span class="discounted-price">${{ '%.2f'|format(product.DiscountedPrice) }}</span>
+        </p>
+        <p><em>Discount ends: {{ product.DiscountTime }}</em></p>
+      {% else %}
+        <p class="price">
+          ${{ '%.2f'|format(product.OriginalPrice or 0.00) }}
+        </p>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
