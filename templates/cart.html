@@ -1,36 +1,49 @@
 {% extends "base2.html" %}
 
 {% block content %}
-<div class="cart-sect">
-    <h2>Your Cart</h2>
+<div class="cart-sect" style="padding: 40px 20px;">
+    <h2 class="section-title">🛒 Your Shopping Cart</h2>
 
     {% if cart %}
     <form method="POST" action="{{ url_for('update_cart') }}">
+
         <div class="product-grid">
             {% for item in cart %}
             <div class="product-card">
-                <img src="{{ item.image if item.image else 'https://via.placeholder.com/150' }}" alt="{{ item.name }}">
-                <h3>{{ item.name }}</h3>
-                <p>${{ '%.2f'|format(item.price) }}</p>
+                <img src="{{ item.ImageURL if item.ImageURL else 'https://via.placeholder.com/150' }}" alt="{{ item.Title }}">
+                <h3>{{ item.Title }}</h3>
+                <p class="product-price">${{ '%.2f'|format(item['DiscountedPrice']) }}</p>
+                <p class="product-colors">Color: {{ item.color }}</p>
+                <p class="product-sizes">Size: {{ item.size }}</p>
 
-                <!-- Quantity input -->
                 <label for="quantity_{{ item.product_id }}">Quantity:</label>
                 <input type="number" id="quantity_{{ item.product_id }}" name="quantities[{{ item.product_id }}]" value="{{ item.quantity }}" min="1">
 
-                <!-- Delete button -->
-                <button type="submit" name="delete_{{ item.product_id }}" value="1">Delete</button>
+                <div style="margin-top: 10px;">
+                    <label>
+                        <input type="checkbox" name="delete_{{ item.product_id }}" value="1">
+                        Remove
+                    </label>
+                </div>
             </div>
             {% endfor %}
         </div>
 
-        <div class="cart-total">
-            <p>Total Price: ${{ '%.2f'|format(total_price) }}</p>
-            <button type="submit" class="cta-button">Update Cart</button>
+        <div class="cart-total" style="text-align: center; margin-top: 40px;">
+            <p style="font-size: 1.5rem; color: #333; margin-bottom: 20px;">
+                Total: <span style="color: #ff69b4;">${{ '%.2f'|format(total_price) }}</span>
+            </p>
+            <button type="submit" class="cta-button" style="margin-right: 10px;">Update Cart</button>
             <a href="{{ url_for('checkout') }}" class="cta-button">Proceed to Checkout</a>
         </div>
     </form>
+
     {% else %}
-        <p>Your cart is empty.</p>
+    <p style="text-align: center; font-size: 1.2rem; color: #555; margin-top: 40px;">Your cart is currently empty.</p>
     {% endif %}
+
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="{{ url_for('products') }}" class="cta-button">← Continue Shopping</a>
+    </div>
 </div>
 {% endblock %}

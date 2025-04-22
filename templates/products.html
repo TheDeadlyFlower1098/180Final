@@ -1,21 +1,57 @@
-{% extends "base2.html" %}
+{% extends "base2.html" %}  <!-- Inherit from base2.html template for common structure and layout -->
 
-{% block content %}
-<div class="products-sect">
-    <h2 class="section-title">All Products</h2>
-    <div class="product-grid">
-        {% for product in products %}
-        <div class="product-card">
+{% block content %}  <!-- Define the content block to be inserted into the base template -->
+
+<div class="products-sect">  <!-- Main container for displaying all products -->
+    <h2 class="section-title">All Products</h2>  <!-- Title for the products section -->
+    <div style="text-align: center; margin-bottom: 20px;">
+        <a href="{{ url_for('cart') }}" class="cart-button">🛒 Go to Cart</a>
+    </div>
+
+    <form method="GET" action="{{ url_for('products') }}" class="filter-form">
+        <input type="text" name="category" placeholder="Category">
+        <input type="text" name="color" placeholder="Color">
+        <input type="text" name="size" placeholder="Size">
+        <select name="availability">
+          <option value="">-- Availability --</option>
+          <option value="in">In Stock</option>
+          <option value="out">Out of Stock</option>
+        </select>
+        <button type="submit" class="cta-button">Apply Filters</button>
+      </form>
+
+
+    <div class="product-grid">  <!-- Grid layout for displaying multiple products -->
+        {% for product in products %}  <!-- Loop through each product in the 'products' list -->
+        
+        <div class="product-card">  <!-- Card layout for each individual product -->
+            
+            <!-- Display product image, using a placeholder image if no image URL is provided -->
             <img src="{{ product.ImageURL if product.ImageURL else 'https://via.placeholder.com/150' }}" alt="{{ product.Title }}">
-            <h3>{{ product.Title }}</h3>
+            
+            <h3>{{ product.Title }}</h3>  <!-- Display the product title -->
+            
+            <!-- Display the product's discounted price, formatted to two decimal places -->
             <p class="product-price">${{ '%.2f'|format(product.DiscountedPrice) }}</p>
+            
+            <!-- Display the product's category -->
             <p class="product-category">Category: {{ product.Category }}</p>
-            <p class="product-colors">Available Colors: {{ product.AvailableColors }}</p>
-            <p class="product-sizes">Available Sizes: {{ product.AvailableSizes }}</p>
+            
+            <!-- Display available colors for the product -->
+            <p class="product-colors">Available Colors: {{ product.Color }}</p>
+            
+            <!-- Display available sizes for the product -->
+            <p class="product-sizes">Available Sizes: {{ product.Size }}</p>
+            
+            <!-- Display the amount of the product in stock -->
             <p class="product-inventory">In Stock: {{ product.Inventory }}</p>
+            
+            <!-- Link to the product details page where users can view more information about the product -->
             <a href="{{ url_for('product_detail', product_id=product.ProductID) }}" class="cta-button">View Details</a>
         </div>
-        {% endfor %}
-    </div>
-</div>
-{% endblock %}
+        
+        {% endfor %}  <!-- End of loop for displaying products -->
+    </div>  <!-- End of product grid -->
+</div>  <!-- End of products section -->
+
+{% endblock %}  <!-- End of content block -->

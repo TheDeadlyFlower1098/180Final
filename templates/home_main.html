@@ -1,48 +1,70 @@
-{% extends "base2.html" %}
+{% extends "base2.html" %}  <!-- Inherit from the base2.html template to use shared structure -->
 
-{% block content %}
+{% block content %}  <!-- Begin content block, injected into the base template -->
+
+<!-- Main homepage section containing the hero and featured products -->
 <div class="home_sect">
+
+  <!-- Hero section with a welcoming message and a call to action button -->
   <div class="home-hero">
-    <h1>Welcome to Bloom 🌸</h1>
-    <p>Discover beauty in every product. Shop our latest collections now!</p>
-    <a href="#" class="cta-button">Shop Now</a>
+    <h1>Welcome to Bloom 🌸</h1>  <!-- Main heading with brand name and flower emoji -->
+    <p>Discover beauty in every product. Shop our latest collections now!</p>  <!-- A subheading encouraging shopping -->
+    <a href="#" class="cta-button">Shop Now</a>  <!-- Call-to-action button to shop -->
   </div>
 
+  <!-- Featured products section -->
   <div class="featured-section">
-    <h2>Featured Products</h2>
-    <div class="product-grid">
-      {% for product in products %}
+    <h2>Featured Products</h2>  <!-- Section title -->
+    <div class="product-grid">  <!-- Grid container to hold featured products -->
+      {% for product in products %}  <!-- Loop through all products in the "products" list -->
+      
+      <!-- Product card for each product in the loop -->
       <div class="product-card">
+        <!-- Image of the product, with a fallback to a placeholder if no image is provided -->
         <img src="{{ product.ImageURL if product.ImageURL else 'https://via.placeholder.com/150' }}" alt="{{ product.Title }}">
+        
+        <!-- Product title -->
         <h3>{{ product.Title }}</h3>
+        
+        <!-- Display product price, formatted to two decimal places -->
         <p>${{ '%.2f'|format(product.DiscountedPrice) }}</p>
       </div>
-      {% endfor %}
+      
+      {% endfor %}  <!-- End of product loop -->
     </div>
   </div>  
-</div>
-  <div class="our-story-section">
-    <h2>Our Story</h2>
-    <div class="story">
-      <p>
-        Bloom was founded with a simple mission: to bring high-quality, thoughtfully crafted beauty products to everyone. 
-        What started as a small passion project in a cozy apartment has bloomed into a thriving company dedicated to sustainability, self-expression, and empowerment through beauty.
-      </p>
+
+</div>  <!-- End of home section -->
+
+<!-- Our story section -->
+<div class="our-story-section">
+  <h2>Our Story</h2>  <!-- Section title -->
+  <div class="story">
+    <p>
+      Bloom was founded with a simple mission: to bring high-quality, thoughtfully crafted beauty products to everyone. 
+      What started as a small passion project in a cozy apartment has bloomed into a thriving company dedicated to sustainability, self-expression, and empowerment through beauty.
+    </p>  <!-- A brief description of the brand's history and mission -->
+  </div>
+
+  <!-- Meet the team section -->
+  <h2 style="text-align: center;">Meet the Team</h2>  <!-- Section title, centered -->
+  <div class="team-grid">  <!-- Grid container to display team members -->
+    
+    <!-- Team member 1 -->
+    <div class="team-member">
+      <img src="https://i.pinimg.com/originals/27/69/55/2769553a76a5008fa9d9df053cefdda5.jpg" alt="Founder">  <!-- Image of the first founder -->
+      <h4>Mariely Placencio</h4>  <!-- Name of the first team member -->
+      <p>Founder & Creative Director</p>  <!-- Role of the first team member -->
     </div>
     
-
-    <h2 style="text-align: center;">Meet the Team</h2>
-    <div class="team-grid">
-      <div class="team-member">
-        <img src="https://i.pinimg.com/originals/27/69/55/2769553a76a5008fa9d9df053cefdda5.jpg" alt="Founder">
-        <h4>Mariely Placencio</h4>
-        <p>Founder & Creative Director</p>
-      </div>
-      <div class="team-member">
-        <img src="https://i.pinimg.com/736x/9c/d4/c0/9cd4c06a130fdf599bcd038be2aaf474.jpg" alt="Founder">
-        <h4>Kalli Putt</h4>
-        <p>Founder & Creative Director</p>
-      </div>
+    <!-- Team member 2 -->
+    <div class="team-member">
+      <img src="https://i.pinimg.com/736x/9c/d4/c0/9cd4c06a130fdf599bcd038be2aaf474.jpg" alt="Founder">  <!-- Image of the second founder -->
+      <h4>Kalli Putt</h4>  <!-- Name of the second team member -->
+      <p>Founder & Creative Director</p>  <!-- Role of the second team member -->
     </div>
+    
   </div>
-{% endblock %}
+</div>
+
+{% endblock %}  <!-- End of content block -->
