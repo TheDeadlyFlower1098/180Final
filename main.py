@@ -1,7 +1,8 @@
-
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from sqlalchemy import create_engine, text
 import hashlib
+from datetime import datetime
+
 
 app = Flask(__name__)
 
@@ -103,7 +104,6 @@ def signup():
     return render_template("signup.html")
 
 
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -124,20 +124,24 @@ def login():
 
                 if result:
                     username = result["Username"]
+                    session["username"] = username
 
                     if username.endswith("_vend"):
                         session["vendor_name"] = username
+                        session["vendor_id"] = result["UserID"]  # ✅ FIXED HERE
                         return redirect(url_for("vendor_dashboard"))
                     else:
-                        session["username"] = username
                         return redirect(url_for("home2"))
                 else:
-                    return f"<h3>Invalid email or password.</h3><a href='{url_for('login')}'>Try again</a>"
+                    flash("Invalid email or password.", "error")
+                    return redirect(url_for("login"))
 
         except Exception as e:
             return f"<h3>Login error: {e}</h3>"
 
     return render_template("login.html")
+
+
 
 @app.route("/logout")
 def logout():
@@ -178,8 +182,13 @@ def add_product():
         inventory_amount = request.form.get("inventory_amount", type=int)
         original_price = request.form.get("original_price", type=float)
         discounted_price = request.form.get("discounted_price", type=float)
-        discount_time = request.form["discount_time"] 
-        image_urls = request.form.getlist("image_urls") 
+        discount_time_str = request.form["discount_time"]  # Get the datetime string
+        discount_time = None
+
+        if discount_time_str:
+            discount_time = datetime.strptime(discount_time_str, "%Y-%m-%dT%H:%M")
+
+        image_urls = request.form.getlist("image_urls")  # Accept multiple image URLs
 
         try:
             with engine.begin() as conn:
@@ -219,6 +228,7 @@ def add_product():
             return f"<h3>Error adding product: {e}</h3>"
 
     return render_template("add_product.html")
+
 
 
 

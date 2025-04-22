@@ -460,8 +460,8 @@ font-family: 'Segoe UI', sans-serif;
 display: flex;
 justify-content: center;
 align-items: center;
-height: 100vh;
-margin: 20px;
+margin-top: 20px;
+
 }
 
 .add-product-card {
