@@ -1,35 +1,50 @@
-{% extends "base2.html" %}
+{% extends "base2.html" %}  <!-- Inherit from base2.html template for consistent layout and structure -->
 
-{% block content %}
+{% block content %}  <!-- Define the content block that will be injected into the base template -->
+
+<!-- Signup Form Section -->
 <div class="signup-form">
   <h2>Sign Up</h2>
+
+  <!-- Form to submit user registration data -->
   <form action="{{ url_for('signup') }}" method="POST">
+    
+    <!-- Display an error message if there is an error during signup -->
     {% if error %}
       <div class="error-message" style="color: red; font-weight: bold;">
-        {{ error }}
+        {{ error }}  <!-- Output the error message -->
       </div>
     {% endif %}
-    
+
+    <!-- Input field for the user's name -->
     <label for="name">Name:</label>
-    <input type="text" name="name" required />
+    <input type="text" name="name" required />  <!-- 'required' ensures the field must be filled out -->
 
+    <!-- Input field for the user's email address -->
     <label for="email">Email:</label>
-    <input type="email" name="email" required />
+    <input type="email" name="email" required />  <!-- The 'email' input type helps validate the email format -->
 
+    <!-- Input field for the user's username -->
     <label for="username">Username:</label>
-    <input type="text" name="username" required />
+    <input type="text" name="username" required />  <!-- 'required' ensures the field must be filled out -->
 
+    <!-- Input field for the user's password -->
     <label for="password">Password:</label>
-    <input type="password" name="password" required />
+    <input type="password" name="password" required />  <!-- Password input hides the characters typed -->
 
+    <!-- Dropdown to select the user's role (Customer or Vendor) -->
     <label for="role">Role:</label>
     <select name="role">
-      <option value="customer">Customer</option>
-      <option value="vendor">Vendor</option>
+      <option value="customer">Customer</option>  <!-- Option for a regular customer -->
+      <option value="vendor">Vendor</option>     <!-- Option for a vendor -->
     </select>
 
+    <!-- Submit button for the signup form -->
     <button type="submit">Sign Up</button>
+
+    <!-- Link to the login page in case the user already has an account -->
     <a href="/login">click here to login</a>
   </form>
 </div>
-{% endblock %}
+
+{% endblock %}  <!-- End of content block -->

@@ -1,22 +1,41 @@
-{% extends "base.html" %}
+{% extends "base.html" %}  <!-- Inherit from the base.html template to use the shared layout -->
 
-{% block content %}
+{% block content %}  <!-- Define the content block which will be injected into the base template -->
+
+<!-- Hero section at the top of the homepage -->
 <div class="home-hero">
+  <!-- Welcome message with a personalized greeting -->
   <h1>Welcome, {{ username }} 🌸</h1>
+  
+  <!-- Subheading encouraging users to explore the collection -->
   <p>Discover beauty in every product. Shop our latest collections now!</p>
+  
+  <!-- Call to action button for the user to shop -->
   <a href="#" class="cta-button">Shop Now</a>
 </div>
 
+<!-- Featured products section -->
 <div class="featured-section">
   <h2>Featured Products</h2>
+  
+  <!-- Product grid to display featured products -->
   <div class="product-grid">
-    {% for product in products %}
+    {% for product in products %}  <!-- Loop through the products passed from the backend -->
+    
+    <!-- Card for each product in the grid -->
     <div class="product-card">
+      <!-- Image of the product, falls back to a placeholder if no image is provided -->
       <img src="{{ product.ImageURL if product.ImageURL else 'https://via.placeholder.com/150' }}" alt="{{ product.Title }}">
+      
+      <!-- Product title -->
       <h3>{{ product.Title }}</h3>
+      
+      <!-- Display the price with two decimal places -->
       <p>${{ '%.2f'|format(product.DiscountedPrice) }}</p>
     </div>
-    {% endfor %}
+    
+    {% endfor %}  <!-- End of product loop -->
   </div>
 </div>
-{% endblock %}
+
+{% endblock %}  <!-- End of content block -->

@@ -1,8 +1,16 @@
-{% extends "base.html" %}
+{% extends "base.html" %}  <!-- Inherit from the base.html template, which provides a consistent structure -->
 
-{% block content %}
+{% block content %}  <!-- Define the content block to be injected into the base template -->
+
+<!-- Section displaying search results -->
 <div class="search-results">
+  
+  <!-- Display the search query entered by the user -->
   <h2>Search Results for "{{ query }}"</h2>
+
+  <!-- Message indicating that no products match the search query -->
   <p>No matching products found.</p>
+
 </div>
-{% endblock %}
+
+{% endblock %}  <!-- End of the content block -->
