@@ -1,7 +1,11 @@
-{% extends "base2.html" %}
+{% extends "base2.html" %}  <!-- Inherit from the base2.html template, which provides the main structure/layout -->
 
-{% block content %}
+{% block content %}  <!-- Define the content block to be injected into the base template -->
+
+<!-- Login form section -->
 <div class="login-form">
+  
+  <!-- Heading for the login page -->
   <h2>Login</h2>
   <form method="POST">
     <input type="email" name="Email" placeholder="Email" required>
@@ -11,4 +15,5 @@
   
   </form>
 </div>
-{% endblock %}
+
+{% endblock %}  <!-- End of the content block -->

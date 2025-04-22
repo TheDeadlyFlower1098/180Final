@@ -1,64 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en">  <!-- Declare that the document is in English -->
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Bloom</title>
-    <link rel="stylesheet" href="../static/style/base.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <meta charset="UTF-8" />  <!-- Set the character encoding to UTF-8 to handle different characters -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>  <!-- Ensure responsive design on mobile devices -->
+    <title>Bloom</title>  <!-- Title displayed in the browser tab -->
+    <link rel="stylesheet" href="../static/style/base.css">  <!-- Link to the main stylesheet for the website -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">  <!-- Link to Font Awesome for icons -->
 </head>
 <body>
 
+<!-- Navigation Bar Section -->
 <nav>
+  <!-- Brand Logo with the name "Bloom 🌸" -->
   <div class="logo">Bloom 🌸</div>
+
+  <!-- Menu Toggle for mobile view (hamburger icon) -->
   <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+
+  <!-- Navigation links for Home, Products, and Categories -->
   <div class="nav-links" id="navLinks">
-    <a href="/home">Home</a>
-    <a href="/products">Products</a>
-    <a href="#">Categories</a>
-  
-    {% if session.get("username") %}
-      {% if session.get("role") == "vendor" %}
-        <a href="{{ url_for('vendor_dashboard') }}">Dashboard</a>
-      {% endif %}
-      <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
-    {% endif %}
+    <a href="/home">Home</a>  <!-- Link to the home page -->
+    <a href="/products">Products</a>  <!-- Link to the products page -->
+    <a href="/categories">Categories</a>  <!-- Link to the categories page -->
   </div>
-  
-  
-  </div>
+
+  <!-- Search bar form -->
   <form action="{{ url_for('search') }}" method="GET" class="search-bar">
-    <input type="text" name="q" placeholder="Search products..." required />
-    <button type="submit">🔍</button>
+    <input type="text" name="q" placeholder="Search products..." required />  <!-- Input field for search query -->
+    <button type="submit">🔍</button>  <!-- Search button with a magnifying glass icon -->
   </form>
 </nav>
 
+<!-- Main content area -->
 <div class="container">
-    {% block content %}
-
+    {% block content %}  <!-- Content block where page-specific content will be rendered -->
     {% endblock %}
     <a href="/view_cart" class="cart-button" title="View Cart">
       <i class="fas fa-shopping-cart"></i>
     </a>
 </div>
 
+<!-- JavaScript to toggle the navigation menu visibility -->
 <script>
   function toggleMenu() {
-    const links = document.getElementById('navLinks');
-    links.classList.toggle('active');
+    const links = document.getElementById('navLinks');  // Get the element with id 'navLinks'
+    links.classList.toggle('active');  // Toggle the 'active' class to show/hide the navigation links
   }
 </script>
 
+<!-- Footer Section -->
 <footer class="site-footer">
     <div class="footer-container">
+      <!-- Copyright statement -->
       <p>&copy; 2025 Bloom. All rights reserved.</p>
+
+      <!-- Footer links for privacy policy, terms of service, and contact us -->
       <div class="footer-links">
-        <a href="#">Privacy Policy</a> |
-        <a href="#">Terms of Service</a> |
-        <a href="#">Contact Us</a>
+        <a href="/privacy-policy">Privacy Policy</a> |  <!-- Link to the privacy policy page -->
+        <a href="/terms-of-service">Terms of Service</a> |  <!-- Link to the terms of service page -->
+        <a href="/contact-us">Contact Us</a>  <!-- Link to the contact us page -->
       </div>
     </div>
-  </footer>
+</footer>
+
 </body>
 </html>
-

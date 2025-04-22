@@ -1,0 +1,16 @@
+{% extends "base.html" %}  <!-- Inherit from base.html template for consistent layout and structure -->
+
+{% block content %}  <!-- Define the content block that will be injected into the base template -->
+
+<!-- Success message displayed after successful sign-up -->
+<div class="signup-success">
+  <h2>Welcome, {{ username }}!</h2>  <!-- Greet the user by their username (variable passed from the backend) -->
+  
+  <!-- Inform the user that their account has been successfully created -->
+  <p>Your account has been successfully created.</p>
+
+  <!-- Provide a link to redirect the user back to the home page -->
+  <a href="{{ url_for('home') }}">Return to Home</a>
+</div>
+
+{% endblock %}  <!-- End of content block -->

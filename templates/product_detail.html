@@ -1,0 +1,53 @@
+{% extends "base2.html" %}
+
+{% block content %}
+<div class="product-detail-sect">
+    <div class="product-detail">
+
+        <img src="{{ product.ImageURL if product.ImageURL else 'https://via.placeholder.com/150' }}"
+        alt="{{ product.Title }}"
+        style="max-width: 400px; height: auto; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+
+
+        <h2 class="product-title">{{ product.Title }}</h2>
+        <p class="product-description">{{ product.Description }}</p>
+        <p class="product-category">Category: {{ product.Category }}</p>
+        <p class="product-price">Price: ${{ '%.2f'|format(product.DiscountedPrice) }}</p>
+        <p class="product-warranty">Warranty: {{ product.WarrantyPeriod }}</p>
+        <p class="product-inventory">In Stock: {{ product.Inventory }}</p>
+
+        <form action="{{ url_for('add_to_cart', product_id=product.ProductID) }}" method="post">
+
+            {% if product.colors %}
+                <label for="color">Color:</label>
+                <select name="color" id="color">
+                    {% for color in product.colors %}
+                        <option value="{{ color }}">{{ color }}</option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+        
+            {% if product.sizes %}
+                <label for="size">Size:</label>
+                <select name="size" id="size">
+                    {% for size in product.sizes %}
+                        <option value="{{ size }}">{{ size }}</option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+        
+            <label for="quantity">Quantity:</label>
+            <input type="number" name="quantity" id="quantity" value="1" min="1">
+        
+            <button type="submit">Add to Cart</button>
+        </form>
+
+        <div class="product-nav-buttons" style="margin-top: 20px;">
+            <a href="{{ url_for('products') }}" class="cta-button" style="margin-right: 10px;">← Back to Products</a>
+            <a href="{{ url_for('cart') }}" class="cta-button">🛒 Go to Cart</a>
+        </div>
+        
+
+    </div>
+</div>
+{% endblock %}

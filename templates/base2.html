@@ -1,38 +1,49 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en">  <!-- Define the language of the document as English -->
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Bloom</title>
-    <link rel="stylesheet" href="../static/style/base.css">
+    <meta charset="UTF-8" />  <!-- Set the character encoding to UTF-8 to support a wide range of characters -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>  <!-- Ensure the page is responsive on all devices -->
+    <title>Bloom</title>  <!-- The title displayed in the browser tab -->
+    <link rel="stylesheet" href="../static/style/base.css">  <!-- Link to the external CSS file for styling -->
 </head>
 <body>
 
+<!-- Navigation bar section -->
 <nav>
+  <!-- Logo section with the brand name "Bloom 🌸" -->
   <div class="logo">Bloom 🌸</div>
+
+  <!-- Menu toggle icon for small screens -->
   <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+
+  <!-- Navigation links that are displayed when the menu is expanded -->
   <div class="nav-links" id="navLinks">
-    <a href="/">Home</a>
-    <a href="/signup">Sign up</a>
-    <a href="/login">Log in</a>
+    <a href="/">Home</a>  <!-- Link to the home page -->
+    <a href="/signup">Sign up</a>  <!-- Link to the sign-up page -->
+    <a href="/login">Log in</a>  <!-- Link to the login page -->
   </div>
 </nav>
 
+<!-- Main container for dynamic content -->
 <div class="container">
-    {% block content %}
-
+    {% block content %}  <!-- Content block where other page content will be injected -->
     {% endblock %}
 </div>
 
+<!-- Footer section -->
 <footer class="site-footer">
     <div class="footer-container">
+      <!-- Copyright information -->
       <p>&copy; 2025 Bloom. All rights reserved.</p>
+      
+      <!-- Footer links (privacy policy, terms of service, and contact us) -->
       <div class="footer-links">
-        <a href="#">Privacy Policy</a> |
-        <a href="#">Terms of Service</a> |
-        <a href="#">Contact Us</a>
+        <a href="/privacy-policy">Privacy Policy</a> |  <!-- Link to privacy policy page -->
+        <a href="/terms-of-service">Terms of Service</a> |  <!-- Link to terms of service page -->
+        <a href="/contact-us">Contact Us</a>  <!-- Link to contact us page -->
       </div>
     </div>
-  </footer>
+</footer>
+
 </body>
 </html>

@@ -1,137 +1,132 @@
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from sqlalchemy import create_engine, text
+from flask_sqlalchemy import SQLAlchemy
 import hashlib
 from datetime import datetime
 
 
+# Initialize Flask app
 app = Flask(__name__)
 
+# Database connection string and engine setup
 con_str = "mysql://root:cset155@localhost/MultiVendorEcommerce"
-engine = create_engine(con_str, echo=True)
+engine = create_engine(con_str, echo=True)  # Echo True logs SQL queries
 conn = engine.connect()
-app.secret_key = "idk"
+app.secret_key = "idk"  # Secret key for session management
+app.config['SQLALCHEMY_DATABASE_URI'] = con_str  # Set the SQLAlchemy URI
+db = SQLAlchemy(app)  # Initialize SQLAlchemy with Flask
 
+# Home route that displays the latest 5 products
 @app.route("/")
 def home():
-    return render_template("home_main.html")
+    # SQL query to select top 5 products with their image URLs
+    query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+        LIMIT 5
+    """)
+    result = conn.execute(query)  # Execute the query
+    products = result.fetchall()  # Fetch all results
+    return render_template("home.html", products=products)  # Render the home page with products
 
+# Alternative home route with session-based username management
 @app.route("/home")
 def home2():
     username = session.get("username")
     if not username:
-        return redirect(url_for("login"))
-    return render_template("home.html", username=username)
-
+        return redirect(url_for("login"))  # Redirect to login if username is not found
+    return render_template("home.html", username=username, products=products)
 
 @app.route("/search")
 def search():
-    query = request.args.get('q')
+    query = request.args.get('q')  # Get the search query from the URL parameters
     if not query:
-        return render_template("search_results.html", query=query, products=[])
+        return redirect(url_for('products'))  # Redirect if no query is provided
+    # SQL query to search products by title
+    search_query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+        WHERE p.Title LIKE :search
+    """)
+    result = conn.execute(search_query, {"search": f"%{query}%"})  # Execute query with search parameter
+    products = result.fetchall()
+    return render_template("search_results.html", query=query, products=products)
 
-    try:
-        with engine.connect() as conn:
-            search_query = text("""
-                SELECT p.*, pi.ImageURL
-                 FROM products p
-                LEFT JOIN productimages pi ON p.ProductID = pi.ProductID
-                 WHERE p.Title LIKE :query OR p.Description LIKE :query
-                """)
-            result = conn.execute(search_query, {"query": f"%{query}%"}).fetchall()
-            return render_template("search_results.html", query=query, products=result)
-
-    except Exception as e:
-        return f"<h3>Error during search: {e}</h3>"
-
-
+# Sign up route for new users (GET to display form, POST to process form)
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
-    if request.method == "POST":
+    if request.method == "POST":  # Handle form submission
         name = request.form["name"]
         email = request.form["email"]
         username = request.form["username"]
         password = request.form["password"]
         role = request.form["role"]
 
+        # Basic email validation
         if not email or "@" not in email:
             return render_template("signup.html", error="Please enter a valid email address.")
         
+        # Password length validation
         if len(password) < 6:
             return render_template("signup.html", error="Password must be at least 6 characters long.")
 
+        # Hash the password using SHA-256
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
 
+        # Append '_vend' to username for vendors
         if role == "vendor":
             username += "_vend"
 
         try:
-            with engine.begin() as conn:
-                # Check for existing email or username
-                email_result = conn.execute(
-                    text("SELECT * FROM User WHERE Email = :email"),
-                    {"email": email}
-                ).fetchone()
+            with engine.connect() as conn:
+                # Check if the email is already registered
+                check_email_query = text("SELECT * FROM User WHERE Email = :email")
+                email_result = conn.execute(check_email_query, {"email": email}).fetchone()
+
                 if email_result:
                     return render_template("signup.html", error="Email is already registered.")
 
-                username_result = conn.execute(
-                    text("SELECT * FROM User WHERE Username = :username"),
-                    {"username": username}
-                ).fetchone()
+                # Check if the username is already taken
+                check_username_query = text("SELECT * FROM User WHERE Username = :username")
+                username_result = conn.execute(check_username_query, {"username": username}).fetchone()
+
                 if username_result:
                     return render_template("signup.html", error="Username is already taken.")
 
-                # Insert into User table
+                # Insert new user into the database
                 insert_query = text("""
                     INSERT INTO User (Name, Email, Username, Password, Role)
                     VALUES (:name, :email, :username, :password, :role)
                 """)
-                conn.execute(insert_query, {
-                    "name": name,
-                    "email": email,
-                    "username": username,
-                    "password": hashed_password,
-                    "role": role
-                })
+                with engine.begin() as conn:
+                    conn.execute(insert_query, {
+                        "name": name,
+                        "email": email,
+                        "username": username,
+                        "password": hashed_password
+                    })
 
-                # Fetch newly created UserID
-                user_id = conn.execute(
-                    text("SELECT UserID FROM User WHERE Username = :username"),
-                    {"username": username}
-                ).scalar()
-
-                # ✅ Insert into Vendor table if role is vendor
-                if role == "vendor":
-                    conn.execute(
-                        text("INSERT INTO Vendor (VendorID, Username) VALUES (:id, :username)"),
-                        {"id": user_id, "username": username}
-                    )
-
-            # Set session
-            if role == "vendor":
-                session["vendor_name"] = username
-            else:
-                session["username"] = username
-
-            flash("You have successfully signed up!")
-            return redirect(url_for("home"))
+            return render_template("signup_success.html", username=username)  # Success page
 
         except Exception as e:
-            return render_template("signup.html", error=f"An error occurred: {e}")
+            return render_template("signup.html", error=f"An error occurred: {e}")  # Error handling
 
-    return render_template("signup.html")
+    return render_template("signup.html")  # Render the signup form
 
-
-
+# Login route for users (GET to display form, POST to process form)
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         email = request.form["Email"]
         password = request.form["password"]
-        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()  # Hash the entered password
 
         try:
             with engine.connect() as conn:
+                # SQL query to check email and password against the database
                 query = text("""
                     SELECT * FROM User
                     WHERE Email = :email AND Password = :password
@@ -139,24 +134,16 @@ def login():
                 result = conn.execute(query, {
                     "email": email,
                     "password": hashed_password
-                }).mappings().fetchone()
-
+                }).fetchone()
                 if result:
-                    username = result["Username"]
-                    session["username"] = username
-
-                    if username.endswith("_vend"):
-                        session["vendor_name"] = username
-                        session["vendor_id"] = result["UserID"]  # ✅ FIXED HERE
-                        return redirect(url_for("vendor_dashboard"))
-                    else:
-                        return redirect(url_for("home2"))
+                    session["username"] = result[1]  # Set the username in the session
+                    return redirect(url_for("home2"))  # Redirect to home page
                 else:
                     flash("Invalid email or password.", "error")
                     return redirect(url_for("login"))
 
         except Exception as e:
-            return f"<h3>Login error: {e}</h3>"
+            return f"<h3>Login error: {e}</h3>"  # Handle any errors during login
 
     return render_template("login.html")
 
