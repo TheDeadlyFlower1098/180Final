@@ -65,32 +65,50 @@ def signup():
             username += "_vend"
 
         try:
-            with engine.connect() as conn:
-                check_email_query = text("SELECT * FROM User WHERE Email = :email")
-                email_result = conn.execute(check_email_query, {"email": email}).fetchone()
-
+            with engine.begin() as conn:
+                # Check for existing email or username
+                email_result = conn.execute(
+                    text("SELECT * FROM User WHERE Email = :email"),
+                    {"email": email}
+                ).fetchone()
                 if email_result:
                     return render_template("signup.html", error="Email is already registered.")
 
-                check_username_query = text("SELECT * FROM User WHERE Username = :username")
-                username_result = conn.execute(check_username_query, {"username": username}).fetchone()
-
+                username_result = conn.execute(
+                    text("SELECT * FROM User WHERE Username = :username"),
+                    {"username": username}
+                ).fetchone()
                 if username_result:
                     return render_template("signup.html", error="Username is already taken.")
 
+                # Insert into User table
                 insert_query = text("""
-                    INSERT INTO User (Name, Email, Username, Password)
-                    VALUES (:name, :email, :username, :password)
+                    INSERT INTO User (Name, Email, Username, Password, Role)
+                    VALUES (:name, :email, :username, :password, :role)
                 """)
                 conn.execute(insert_query, {
                     "name": name,
                     "email": email,
                     "username": username,
-                    "password": hashed_password
+                    "password": hashed_password,
+                    "role": role
                 })
-                conn.commit()
 
-            if username.endswith("_vend"):
+                # Fetch newly created UserID
+                user_id = conn.execute(
+                    text("SELECT UserID FROM User WHERE Username = :username"),
+                    {"username": username}
+                ).scalar()
+
+                # ✅ Insert into Vendor table if role is vendor
+                if role == "vendor":
+                    conn.execute(
+                        text("INSERT INTO Vendor (VendorID, Username) VALUES (:id, :username)"),
+                        {"id": user_id, "username": username}
+                    )
+
+            # Set session
+            if role == "vendor":
                 session["vendor_name"] = username
             else:
                 session["username"] = username
@@ -102,6 +120,7 @@ def signup():
             return render_template("signup.html", error=f"An error occurred: {e}")
 
     return render_template("signup.html")
+
 
 
 @app.route("/login", methods=["GET", "POST"])

@@ -17,6 +17,7 @@
       <p><strong>Size:</strong> {{ product.Size }}</p>
       <p><strong>Warranty:</strong> {{ product.WarrantyPeriod }} months</p>
       <p><strong>In Stock:</strong> {{ product.InventoryAmount }}</p>
+      
 
       {% if product.DiscountedPrice is not none and product.OriginalPrice is not none and product.DiscountedPrice < product.OriginalPrice %}
         <p class="price">
@@ -29,6 +30,9 @@
           ${{ '%.2f'|format(product.OriginalPrice or 0.00) }}
         </p>
       {% endif %}
+      <form action="/add_to_cart/1" method="POST">
+        <button type="submit" class="add-to-cart-btn">Add to Cart</button>
+      </form>
     </div>
   {% endfor %}
 </div>
