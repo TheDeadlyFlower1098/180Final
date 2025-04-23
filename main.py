@@ -235,7 +235,49 @@ def add_product():
 
     return render_template("add_product.html")
 
+@app.route('/cart')
+def cart():
+    cart = session.get('cart', [])  # Retrieve cart from session
+    print("Cart:", cart)  # Debug: Check the contents of the cart
 
+    if not cart:  # If the cart is empty
+        return render_template("cart.html", products=[], total_price=0, cart=cart)
+
+    # Continue with your logic here to fetch product details
+    # Extract product_ids from cart
+    product_ids = [item['product_id'] for item in cart]
+    print("Product IDs:", product_ids)  # Debug: Check extracted product IDs
+
+    query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+        WHERE p.ProductID IN :product_ids
+    """)
+
+    try:
+        result = conn.execute(query, {"product_ids": tuple(product_ids)})
+        products = result.mappings().fetchall()  # Use mappings to return rows as dictionaries
+        print("Products Fetched:", products)  # Debug: Check fetched products
+    except Exception as e:
+        print("Error executing query:", e)
+        return "There was an error fetching products"
+
+    # Merge the DiscountedPrice with each cart item
+    for item in cart:
+        for product in products:
+            if item['product_id'] == product['ProductID']:
+                item['DiscountedPrice'] = product['DiscountedPrice']
+                item['Title'] = product['Title']
+                item['ImageURL'] = product['ImageURL']
+
+    # Calculate total price based on cart items
+    total_price = 0
+    for item in cart:
+        if 'DiscountedPrice' in item:
+            total_price += item['DiscountedPrice'] * item['quantity']
+
+    return render_template("cart.html", products=cart, total_price=total_price, cart=cart)
 
 
 
