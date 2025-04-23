@@ -34,14 +34,15 @@ CREATE TABLE Products (
     Title VARCHAR(200),
     Description TEXT,
     WarrantyPeriod INT,
-    Color VARCHAR(50),
-    Size VARCHAR(50),
     InventoryAmount INT,
     OriginalPrice DECIMAL(10,2),
     DiscountedPrice DECIMAL(10,2),
     DiscountTime DATETIME,
+    Color VARCHAR(255),
+    Size VARCHAR(255),
     VendorID INT,
     AdminID INT,
+    Category VARCHAR(255),
     FOREIGN KEY (VendorID) REFERENCES Vendor(VendorID),
     FOREIGN KEY (AdminID) REFERENCES Admin(AdminID)
 );
@@ -128,41 +129,37 @@ INSERT INTO User (Name, Email, Username, Password) VALUES
 
 -- Admins
 INSERT INTO Admin (AdminID) VALUES (1), (2);
-INSERT INTO Admin (AdminID) VALUES (3);
 
 -- Vendors
 INSERT INTO Vendor (VendorID) VALUES (3), (4), (5);
-INSERT INTO Vendor (VendorID) VALUES (6);
 
 -- Customers
 INSERT INTO Customer (CustomerID) VALUES (6), (7), (8), (9), (10);
-INSERT INTO Customer (CustomerID) VALUES (11);
 
 -- Products
 INSERT INTO Products (
-    Title, Description, WarrantyPeriod, Color, Size, InventoryAmount, OriginalPrice, DiscountedPrice, DiscountTime, VendorID, AdminID
+    Title, Description, WarrantyPeriod, Colors, Sizes, InventoryAmount, OriginalPrice, DiscountedPrice, DiscountTime, VendorID, AdminID, Categories
 ) VALUES
-('Rose Bouquet', 'Freshly hand-picked red roses in a charming bouquet.', 7, 'Red', 'Medium', 50, 29.99, 24.99, NOW(), 3, 1),
-('Lavender Scented Candles', 'Eco-friendly candles with calming lavender aroma.', 30, 'Purple', 'Small', 100, 14.99, 12.99, NOW(), 4, 1),
-('Bamboo Plant in Ceramic Pot', 'Live bamboo plant perfect for home or office décor.', 90, 'Green', 'Small', 30, 19.99, 17.49, NOW(), 5, 1),
-('Floral Sketch Journal', 'Hardcover notebook with botanical cover design.', 0, 'White/Floral', 'A5', 70, 12.50, 10.00, NOW(), 3, 1),
-('Wildflower Seeds Pack', 'A mix of perennial wildflower seeds for your garden.', 0, 'Mixed', 'Packet', 200, 9.99, 7.99, NOW(), 4, 1),
-('Sunflower Wall Art', 'Framed artwork featuring vibrant sunflowers.', 0, 'Yellow', '16x20 inches', 40, 39.99, 35.00, NOW(), 5, 1),
-('Chamomile Tea Set', 'Organic chamomile flower tea with infuser included.', 0, 'Brown', 'Box', 60, 22.99, 18.99, NOW(), 3, 1),
-('Aloe Vera Gel', 'Natural skincare gel from 100% pure aloe vera.', 365, 'Green', '250ml', 80, 15.99, 13.49, NOW(), 4, 1),
-('Herbal Bath Salts', 'Relaxing bath salts with rose and lavender extracts.', 0, 'Pink', '500g', 90, 18.99, 15.99, NOW(), 5, 1),
-('Daisy Embroidered Tote Bag', 'Reusable canvas bag with hand-embroidered daisies.', 0, 'Beige', 'Standard', 120, 21.99, 17.99, NOW(), 3, 1),
-('Eucalyptus Shower Spray', 'Aromatherapy spray for a refreshing shower experience.', 60, 'Clear', '150ml', 70, 14.99, 12.49, NOW(), 4, 1),
-('Succulent Variety Set', 'Set of 5 assorted succulents in mini clay pots.', 30, 'Green', 'Small', 55, 34.99, 29.99, NOW(), 5, 1),
-('Pressed Flower Phone Case', 'Transparent phone case with real pressed flowers.', 0, 'Clear/Floral', 'Universal', 75, 16.50, 13.50, NOW(), 3, 1),
-('Cedarwood Essential Oil', 'Pure cedarwood oil for relaxation and aromatherapy.', 365, 'Amber', '30ml', 60, 11.99, 9.99, NOW(), 4, 1),
-('Botanical Greeting Cards Set', 'Set of 10 floral-themed cards with envelopes.', 0, 'Mixed', 'A6', 110, 13.99, 11.99, NOW(), 5, 1),
-('Flower Print Scarf', 'Lightweight scarf featuring pastel floral prints.', 0, 'Multi-color', 'One Size', 45, 19.99, 16.99, NOW(), 3, 1),
-('Eco Terrarium Kit', 'DIY terrarium with moss, stones, and miniature succulents.', 0, 'Green', 'Box', 35, 42.50, 38.00, NOW(), 4, 1),
-('Hibiscus Hair Oil', 'Nourishing hair oil enriched with hibiscus extracts.', 365, 'Red', '200ml', 90, 17.99, 15.49, NOW(), 5, 1),
-('Magnolia Room Spray', 'Natural room spray for fresh floral ambiance.', 60, 'White', '250ml', 85, 12.99, 10.99, NOW(), 3, 1),
-('Rose Quartz Planter', 'Mini ceramic planter embedded with rose quartz.', 0, 'Pink', 'Small', 40, 25.99, 22.99, NOW(), 4, 1);
-
+('Rose Bouquet', 'Freshly hand-picked red roses in a charming bouquet.', 7, 'Red White Pink', 'Medium Large', 50, 29.99, 24.99, NOW(), 3, 1, 'Flowers Bouquets Gift'),
+('Lavender Scented Candles', 'Eco-friendly candles with calming lavender aroma.', 30, 'Purple Lavender', 'Small Medium', 100, 14.99, 12.99, NOW(), 4, 1, 'Candles Home Décor Aromatherapy'),
+('Bamboo Plant in Ceramic Pot', 'Live bamboo plant perfect for home or office décor.', 90, 'Green', 'Small Medium Large', 30, 19.99, 17.49, NOW(), 5, 1, 'Plants Home Décor'),
+('Floral Sketch Journal', 'Hardcover notebook with botanical cover design.', 0, 'White Floral', 'A5 B5', 70, 12.50, 10.00, NOW(), 3, 1, 'Stationery Journals Gifts'),
+('Wildflower Seeds Pack', 'A mix of perennial wildflower seeds for your garden.', 0, 'Mixed', 'Packet', 200, 9.99, 7.99, NOW(), 4, 1, 'Gardening Seeds'),
+('Sunflower Wall Art', 'Framed artwork featuring vibrant sunflowers.', 0, 'Yellow', '16x20 inches', 40, 39.99, 35.00, NOW(), 5, 1, 'Art Home Décor'),
+('Chamomile Tea Set', 'Organic chamomile flower tea with infuser included.', 0, 'Brown', 'Box', 60, 22.99, 18.99, NOW(), 3, 1, 'Tea Herbal Beverages'),
+('Aloe Vera Gel', 'Natural skincare gel from 100% pure aloe vera.', 365, 'Green', '250ml 500ml', 80, 15.99, 13.49, NOW(), 4, 1, 'Skin Care Health'),
+('Herbal Bath Salts', 'Relaxing bath salts with rose and lavender extracts.', 0, 'Pink Lavender', '500g', 90, 18.99, 15.99, NOW(), 5, 1, 'Bath & Body Skincare'),
+('Daisy Embroidered Tote Bag', 'Reusable canvas bag with hand-embroidered daisies.', 0, 'Beige', 'Standard Large', 120, 21.99, 17.99, NOW(), 3, 1, 'Bags Fashion Accessories'),
+('Eucalyptus Shower Spray', 'Aromatherapy spray for a refreshing shower experience.', 60, 'Clear', '150ml 250ml', 70, 14.99, 12.49, NOW(), 4, 1, 'Shower Aromatherapy'),
+('Succulent Variety Set', 'Set of 5 assorted succulents in mini clay pots.', 30, 'Green', 'Small Medium', 55, 34.99, 29.99, NOW(), 5, 1, 'Plants Home Décor'),
+('Pressed Flower Phone Case', 'Transparent phone case with real pressed flowers.', 0, 'Clear Floral', 'Universal', 75, 16.50, 13.50, NOW(), 3, 1, 'Phone Accessories Floral'),
+('Cedarwood Essential Oil', 'Pure cedarwood oil for relaxation and aromatherapy.', 365, 'Amber', '30ml 50ml', 60, 11.99, 9.99, NOW(), 4, 1, 'Essential Oils Aromatherapy'),
+('Botanical Greeting Cards Set', 'Set of 10 floral-themed cards with envelopes.', 0, 'Mixed', 'A6 B6', 110, 13.99, 11.99, NOW(), 5, 1, 'Stationery Gifts Cards'),
+('Flower Print Scarf', 'Lightweight scarf featuring pastel floral prints.', 0, 'Multi-color', 'One Size', 45, 19.99, 16.99, NOW(), 3, 1, 'Fashion Accessories Scarves'),
+('Eco Terrarium Kit', 'DIY terrarium with moss, stones, and miniature succulents.', 0, 'Green', 'Box', 35, 42.50, 38.00, NOW(), 4, 1, 'Gardening Kits DIY'),
+('Hibiscus Hair Oil', 'Nourishing hair oil enriched with hibiscus extracts.', 365, 'Red', '200ml 500ml', 90, 17.99, 15.49, NOW(), 5, 1, 'Hair Care Skincare'),
+('Magnolia Room Spray', 'Natural room spray for fresh floral ambiance.', 60, 'White', '250ml', 85, 12.99, 10.99, NOW(), 3, 1, 'Home Fragrance Aromatherapy'),
+('Rose Quartz Planter', 'Mini ceramic planter embedded with rose quartz.', 0, 'Pink', 'Small Large', 40, 25.99, 22.99, NOW(), 4, 1, 'Home Décor Gardening');
 SELECT * FROM Products;
 
 -- Product Images
@@ -198,7 +195,7 @@ VALUES (1, 1, 2), (1, 2, 1);  -- Assuming OrderID 1 and ProductIDs 1, 2
 
 -- Add a review for a product
 INSERT INTO Review (CustomerID, ProductID, Rating, Description, ImageURL, Date)
-VALUES (6, 1, 5, 'Amazing roses! Perfect for any occasion.', 'https://example.com/image.jpg', CURDATE());
+VALUES (6, 1, 5, 'Amazing roses! Perfect for any occasion.', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRfii8GaHuwlwDTpZ17jQvotTDaEtRYMici7A&s', CURDATE());
 
 -- Add a return request
 INSERT INTO Returns (CustomerID, ProductID, Date, Title, Status, Description, Demand) 
@@ -207,9 +204,3 @@ VALUES (6, 1, CURDATE(), 'Rose Bouquet - Damaged', 'pending', 'The flowers were 
 -- Add a chat message between users
 INSERT INTO Chat (SenderID, ReceiverID, Message, ImageURL, Timestamp) 
 VALUES (6, 1, 'Hi, I have a question about the order status.', 'https://example.com/chat-image.jpg', NOW());
-
--- Check for CustomerID = 6
-SELECT * FROM Customer WHERE CustomerID = 6;
-
--- Check for ProductID = 1
-SELECT * FROM Products WHERE ProductID = 1;

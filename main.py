@@ -45,22 +45,25 @@ def home2():
         return redirect(url_for("login"))  # Redirect to login if username is not found
     return render_template("home.html", username=username, products=products)
 
-# Search functionality that queries products based on user input
 @app.route("/search")
 def search():
-    query = request.args.get('q')  # Get the search query from the URL parameters
+    query = request.args.get('q')
     if not query:
-        return redirect(url_for('products'))  # Redirect if no query is provided
-    # SQL query to search products by title
-    search_query = text("""
-        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
-        FROM Products p
-        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
-        WHERE p.Title LIKE :search
-    """)
-    result = conn.execute(search_query, {"search": f"%{query}%"})  # Execute query with search parameter
-    products = result.fetchall()
-    return render_template("search_results.html", query=query, products=products)
+        return render_template("search_results.html", query=query, products=[])
+
+    try:
+        with engine.connect() as conn:
+            search_query = text("""
+                SELECT p.*, pi.ImageURL
+                 FROM products p
+                LEFT JOIN productimages pi ON p.ProductID = pi.ProductID
+                 WHERE p.Title LIKE :query OR p.Description LIKE :query
+                """)
+            result = conn.execute(search_query, {"query": f"%{query}%"}).fetchall()
+            return render_template("search_results.html", query=query, products=result)
+
+    except Exception as e:
+        return f"<h3>Error during search: {e}</h3>"
 
 # Sign up route for new users (GET to display form, POST to process form)
 @app.route("/signup", methods=["GET", "POST"])
@@ -207,8 +210,9 @@ def product_detail(product_id):
         return "<h3>Product not found.</h3>"
 
     product = dict(result._mapping)
-    product["colors"] = product["Color"].split(",") if product["Color"] else []
-    product["sizes"] = product["Size"].split(",") if product["Size"] else []
+    product["colors"] = product["Color"].split() if product["Color"] else []
+    product["sizes"] = product["Size"].split() if product["Size"] else []
+    product["categories"] = product["Category"].split() if product["Category"] else []
     return render_template("product_detail.html", product=product)
 
 # Cart item model for SQLAlchemy (manages cart items in the database)
