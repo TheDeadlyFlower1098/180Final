@@ -1,0 +1,23 @@
+{% extends "vendor_base.html" %}
+
+{% block content %}
+<h2>Add a New Product</h2>
+<div class="add">
+    <form method="post">
+        <label>Title: <input type="text" name="title" required></label><br>
+        <label>Description: <textarea name="description" required></textarea></label><br>
+        <label>Warranty Period (months): <input type="number" name="warranty_period"></label><br>
+        <label>Color: <input type="text" name="color"></label><br>
+        <label>Size: <input type="text" name="size"></label><br>
+        <label>Inventory Amount: <input type="number" name="inventory_amount" required></label><br>
+        <label>Original Price: <input type="number" step="0.01" name="original_price" required></label><br>
+        <label>Discounted Price: <input type="number" step="0.01" name="discounted_price"></label><br>
+        <label>Discount Time: <input type="datetime-local" name="discount_time"></label><br>
+        <label>Image URLs (one per field):</label><br>
+        <input type="text" name="image_urls"><br>
+        <button id="submit-product" type="submit">Add Product</button>
+    </form>
+</div>
+
+{% endblock %}
+
