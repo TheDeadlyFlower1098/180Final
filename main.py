@@ -1,10 +1,9 @@
-
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+# Import necessary libraries
+from flask import Flask, render_template, request, redirect, url_for, session
 from sqlalchemy import create_engine, text
 from flask_sqlalchemy import SQLAlchemy
-import hashlib
 from datetime import datetime
-
+import hashlib
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -13,7 +12,7 @@ app = Flask(__name__)
 con_str = "mysql://root:cset155@localhost/MultiVendorEcommerce"
 engine = create_engine(con_str, echo=True)  # Echo True logs SQL queries
 conn = engine.connect()
-app.secret_key = "idk"  # Secret key for session management
+app.secret_key = "idkwhattoput"  # Secret key for session management
 app.config['SQLALCHEMY_DATABASE_URI'] = con_str  # Set the SQLAlchemy URI
 db = SQLAlchemy(app)  # Initialize SQLAlchemy with Flask
 
@@ -102,8 +101,8 @@ def signup():
 
                 # Insert new user into the database
                 insert_query = text("""
-                    INSERT INTO User (Name, Email, Username, Password, Role)
-                    VALUES (:name, :email, :username, :password, :role)
+                    INSERT INTO User (Name, Email, Username, Password)
+                    VALUES (:name, :email, :username, :password)
                 """)
                 with engine.begin() as conn:
                     conn.execute(insert_query, {
@@ -139,23 +138,23 @@ def login():
                     "email": email,
                     "password": hashed_password
                 }).fetchone()
+
                 if result:
                     session["username"] = result[1]  # Set the username in the session
                     return redirect(url_for("home2"))  # Redirect to home page
                 else:
-                    flash("Invalid email or password.", "error")
-                    return redirect(url_for("login"))
+                    return f"<h3>Invalid email or password.</h3><a href='{url_for('login')}'>Try again</a>"
 
         except Exception as e:
             return f"<h3>Login error: {e}</h3>"  # Handle any errors during login
 
-    return render_template("login.html")
+    return render_template("login.html")  # Render the login form
 
+# Logout route to clear the session and redirect to login page
 @app.route("/logout")
 def logout():
-    session.clear()
-    flash("You have been logged out.", "info")
-    return redirect(url_for("login"))
+    session.clear()  # Clear the session
+    return redirect(url_for("login"))  # Redirect to login page
 
 @app.route("/vendor/dashboard")
 def vendor_dashboard():
@@ -163,7 +162,6 @@ def vendor_dashboard():
     if not vendor_name:
         return redirect(url_for("login"))
     return render_template("vendor_dashboard.html", vendor_name=vendor_name)
-
 
 @app.route("/products")
 def products():
@@ -301,33 +299,6 @@ def cart():
 
     return render_template("cart.html", products=cart, total_price=total_price, cart=cart)
 
-@app.route('/cart')
-def cart():
-    cart = session.get('cart', [])  # Retrieve cart from session
-    print("Cart:", cart)  # Debug: Check the contents of the cart
-
-    if not cart:  # If the cart is empty
-        return render_template("cart.html", products=[], total_price=0, cart=cart)
-
-    # Continue with your logic here to fetch product details
-    # Extract product_ids from cart
-    product_ids = [item['product_id'] for item in cart]
-    print("Product IDs:", product_ids)  # Debug: Check extracted product IDs
-
-    query = text("""
-        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
-        FROM Products p
-        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
-        WHERE p.ProductID IN :product_ids
-    """)
-    try:
-        with engine.connect() as conn:
-            query = text("SELECT p.*, pi.ImageURL FROM products p LEFT JOIN productimages pi ON p.ProductID = pi.ProductID")
-            result = conn.execute(query).mappings().fetchall()
-            return render_template("products.html", products=result)
-    except Exception as e:
-        return f"<h3>Error loading products: {e}</h3>"
-    
 @app.route("/vendor/add_product", methods=["GET", "POST"])
 def add_product():
     vendor_id = session.get("vendor_id")
@@ -391,5 +362,55 @@ def add_product():
 
     return render_template("add_product.html")
 
+@app.route('/update_cart', methods=['POST'])
+def update_cart():
+    if 'cart' not in session:
+        return redirect(url_for('cart'))  # Redirect if cart doesn't exist in session
+
+    cart = session['cart']
+    updated_cart = []
+
+    for item in cart:
+        product_id = item['product_id']
+        
+        # Get updated quantity
+        quantity = int(request.form.get(f'quantities[{product_id}]', item['quantity']))  # Default to existing quantity if no update
+        
+        # Check if item should be deleted
+        if f'delete_{product_id}' in request.form and request.form.get(f'delete_{product_id}') == '1':
+            continue  # Skip adding this item to the updated cart if it's marked for deletion
+
+        item['quantity'] = quantity  # Update quantity
+        updated_cart.append(item)  # Add updated item to the new cart
+
+    session['cart'] = updated_cart  # Update session cart
+    session.modified = True
+    return redirect(url_for('cart'))  # Redirect to cart page
+
+
+# Checkout route to display the checkout page with total price
+@app.route("/checkout")
+def checkout():
+    cart = session.get('cart', [])
+    total_price = 0
+    product_ids = [item['product_id'] for item in cart]
+
+    # Fixed the SQL query here:
+    query = text("""
+        SELECT p.ProductID, p.DiscountedPrice
+        FROM Products p
+        WHERE p.ProductID IN :product_ids
+    """)
+    result = conn.execute(query, {"product_ids": tuple(product_ids)})
+    products = result.fetchall()
+
+    for product in products:
+        for item in cart:
+            if item['product_id'] == product['ProductID']:
+                total_price += product['DiscountedPrice'] * item['quantity']
+
+    return render_template("checkout.html", products=products, total_price=total_price)
+
+# Run the Flask application
 if __name__ == '__main__':
     app.run(debug=True)
