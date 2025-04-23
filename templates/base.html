@@ -1,64 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">  <!-- Declare that the document is in English -->
+<html lang="en">  <!-- Define the language of the document as English -->
 <head>
-    <meta charset="UTF-8" />  <!-- Set the character encoding to UTF-8 to handle different characters -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>  <!-- Ensure responsive design on mobile devices -->
+    <meta charset="UTF-8" />  <!-- Set the character encoding to UTF-8 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>  <!-- Responsive design for mobile devices -->
     <title>Bloom</title>  <!-- Title displayed in the browser tab -->
-    <link rel="stylesheet" href="../static/style/base.css">  <!-- Link to the main stylesheet for the website -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">  <!-- Link to Font Awesome for icons -->
+    <link rel="stylesheet" href="../static/style/base.css">  <!-- Link to the main stylesheet -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">  <!-- Font Awesome for icons -->
 </head>
 <body>
 
-<!-- Navigation Bar Section -->
+<!-- Navigation bar section -->
 <nav>
-  <!-- Brand Logo with the name "Bloom 🌸" -->
+  <!-- Brand logo -->
   <div class="logo">Bloom 🌸</div>
 
-  <!-- Menu Toggle for mobile view (hamburger icon) -->
+  <!-- Menu toggle icon for mobile view -->
   <div class="menu-toggle" onclick="toggleMenu()">☰</div>
 
-  <!-- Navigation links for Home, Products, and Categories -->
+  <!-- Navigation links -->
   <div class="nav-links" id="navLinks">
-    <a href="/home">Home</a>  <!-- Link to the home page -->
-    <a href="/products">Products</a>  <!-- Link to the products page -->
-    <a href="/categories">Categories</a>  <!-- Link to the categories page -->
+    <a href="/">Home</a>  <!-- Home route -->
+    <a href="/products">Products</a>  <!-- Products page -->
+    <a href="/signup">Sign up</a>  <!-- Sign-up page -->
+    <a href="/login">Log in</a>  <!-- Login page -->
+    {% if session.get('username') %}
+        <a href="{{ url_for('logout') }}">Log out</a>
+    {% endif %}
   </div>
 
-  <!-- Search bar form -->
+  <!-- Search bar -->
   <form action="{{ url_for('search') }}" method="GET" class="search-bar">
-    <input type="text" name="q" placeholder="Search products..." required />  <!-- Input field for search query -->
-    <button type="submit">🔍</button>  <!-- Search button with a magnifying glass icon -->
+    <input type="text" name="q" placeholder="Search products..." required />  <!-- Search input -->
+    <button type="submit">🔍</button>  <!-- Search button -->
   </form>
 </nav>
 
-<!-- Main content area -->
+<!-- Main content container -->
 <div class="container">
-    {% block content %}  <!-- Content block where page-specific content will be rendered -->
+    {% block content %}  <!-- Placeholder for dynamic content -->
     {% endblock %}
-    <a href="/view_cart" class="cart-button" title="View Cart">
-      <i class="fas fa-shopping-cart"></i>
+
+    <!-- Cart icon link -->
+    <a href="/cart" class="cart-button" title="View Cart">
+      <i class="fas fa-shopping-cart"></i>  <!-- Cart icon -->
     </a>
 </div>
 
-<!-- JavaScript to toggle the navigation menu visibility -->
+<!-- Script for menu toggle functionality -->
 <script>
   function toggleMenu() {
-    const links = document.getElementById('navLinks');  // Get the element with id 'navLinks'
-    links.classList.toggle('active');  // Toggle the 'active' class to show/hide the navigation links
+    const links = document.getElementById('navLinks');
+    links.classList.toggle('active');
   }
 </script>
 
-<!-- Footer Section -->
+<!-- Footer section -->
 <footer class="site-footer">
     <div class="footer-container">
-      <!-- Copyright statement -->
-      <p>&copy; 2025 Bloom. All rights reserved.</p>
-
-      <!-- Footer links for privacy policy, terms of service, and contact us -->
+      <p>&copy; 2025 Bloom. All rights reserved.</p>  <!-- Copyright -->
       <div class="footer-links">
-        <a href="/privacy-policy">Privacy Policy</a> |  <!-- Link to the privacy policy page -->
-        <a href="/terms-of-service">Terms of Service</a> |  <!-- Link to the terms of service page -->
-        <a href="/contact-us">Contact Us</a>  <!-- Link to the contact us page -->
+        <a href="/privacy-policy">Privacy Policy</a> |
+        <a href="/terms-of-service">Terms of Service</a> |
+        <a href="/contact-us">Contact Us</a>
       </div>
     </div>
 </footer>
