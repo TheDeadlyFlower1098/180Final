@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import hashlib
 
+
 # Initialize Flask app
 app = Flask(__name__)
 
@@ -172,7 +173,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()  # Clear the session
-    return redirect(url_for("login"))  # Redirect to login page
+    return redirect(url_for("login")) 
 
 @app.route("/vendor/dashboard")
 def vendor_dashboard():
@@ -479,20 +480,26 @@ def checkout():
     if not cart:
         return redirect(url_for('cart'))
     
-    cart, total_price = enrich_cart(cart)  # Reuse logic
+    cart, total_price = enrich_cart(cart) 
 
     if request.method == 'POST':
-        # Payment form processing...
+        card_exp_date = request.form['exp_date']
+        card_exp_date = datetime.strptime(card_exp_date, '%Y-%m')
+
+        # Get the current date
+        current_date = datetime.now()
+
+        # Check if the card is expired
+        if card_exp_date < current_date:
+            # If expired, show error message
+            return render_template("checkout.html", products=cart, total_price=total_price, error="Your credit card is expired.")
+
+        # Proceed with order creation if the card is not expired
         order_id = create_order(cart, total_price, request.form['billing_address'])
         session['cart'] = []
         return redirect(url_for('order_confirmation', order_id=order_id))
 
     return render_template("checkout.html", products=cart, total_price=total_price)
-def create_order(cart, total_price, billing_address):
-    # Simulate order creation
-    order_id = "ORD123"  # Replace with actual order ID logic
-    # Here, you can save the order to the database
-    return order_id
 
 @app.route('/order_confirmation/<order_id>')
 def order_confirmation(order_id):
