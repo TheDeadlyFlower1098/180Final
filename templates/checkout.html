@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="checkout-sect" style="padding: 60px 20px; background-color: #f9f9f9;">
+    <h2 class="section-title">Checkout</h2>
+
+    {% if products %}
+    <div class="signup-form" style="max-width: 600px; margin: 40px auto;">
+        <h3 style="margin-bottom: 20px; color: #333;">Your Cart:</h3>
+        <ul style="margin-bottom: 20px; color: #555;">
+            {% for item in products %}
+                <li>{{ item.Title }} - {{ item.DiscountedPrice }} USD x {{ item.quantity }}</li>
+            {% endfor %}
+        </ul>
+        <h3 style="margin-bottom: 30px; color: #333;">Total Price: {{ total_price }} USD</h3>
+
+        <h4 style="margin-bottom: 20px; color: #333;">Enter Payment Information:</h4>
+        <form method="POST" action="{{ url_for('checkout') }}">
+            <label for="card_number">Credit Card Number:</label>
+            <input type="text" id="card_number" name="card_number" required>
+
+            <label for="exp_date">Expiration Date:</label>
+            <input type="month" id="exp_date" name="exp_date" required>
+
+            <label for="cvv">CVV:</label>
+            <input type="text" id="cvv" name="cvv" required>
+
+            <label for="billing_address">Billing Address:</label>
+            <input type="text" id="billing_address" name="billing_address" required>
+
+            <button type="submit">Complete Payment</button>
+        </form>
+    </div>
+    {% else %}
+    <p style="text-align: center; color: #555; font-size: 1.2rem;">Your cart is empty!</p>
+    {% endif %}
+</div>
+{% endblock %}
