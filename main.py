@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import hashlib
 
+
 # Initialize Flask app
 app = Flask(__name__)
 
@@ -35,7 +36,18 @@ def home():
 def home2():
     username = session.get("username")
     if not username:
-        return redirect(url_for("login"))  # Redirect to login if username is not found
+        return redirect(url_for("login"))
+
+    # Add product query to prevent NameError
+    query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+        LIMIT 5
+    """)
+    result = conn.execute(query)
+    products = result.fetchall()
+
     return render_template("home.html", username=username, products=products)
 
 @app.route("/search")
@@ -61,63 +73,59 @@ def search():
 # Sign up route for new users (GET to display form, POST to process form)
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
-    if request.method == "POST":  # Handle form submission
+    if request.method == "POST":
         name = request.form["name"]
         email = request.form["email"]
         username = request.form["username"]
         password = request.form["password"]
         role = request.form["role"]
 
-        # Basic email validation
         if not email or "@" not in email:
             return render_template("signup.html", error="Please enter a valid email address.")
-        
-        # Password length validation
         if len(password) < 6:
             return render_template("signup.html", error="Password must be at least 6 characters long.")
 
-        # Hash the password using SHA-256
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
 
-        # Append '_vend' to username for vendors
-        if role == "vendor":
-            username += "_vend"
-
         try:
-            with engine.connect() as conn:
-                # Check if the email is already registered
-                check_email_query = text("SELECT * FROM User WHERE Email = :email")
-                email_result = conn.execute(check_email_query, {"email": email}).fetchone()
+            with engine.begin() as conn:
+                # Check for duplicate email or username
+                email_exists = conn.execute(text("SELECT * FROM User WHERE Email = :email"), {"email": email}).fetchone()
+                username_exists = conn.execute(text("SELECT * FROM User WHERE Username = :username"), {"username": username}).fetchone()
 
-                if email_result:
+                if email_exists:
                     return render_template("signup.html", error="Email is already registered.")
-
-                # Check if the username is already taken
-                check_username_query = text("SELECT * FROM User WHERE Username = :username")
-                username_result = conn.execute(check_username_query, {"username": username}).fetchone()
-
-                if username_result:
+                if username_exists:
                     return render_template("signup.html", error="Username is already taken.")
 
-                # Insert new user into the database
-                insert_query = text("""
-                    INSERT INTO User (Name, Email, Username, Password)
-                    VALUES (:name, :email, :username, :password)
+                # Insert user
+                insert_user = text("""
+                    INSERT INTO User (Name, Email, Username, Password, Role)
+                    VALUES (:name, :email, :username, :password, :role)
                 """)
-                with engine.begin() as conn:
-                    conn.execute(insert_query, {
-                        "name": name,
-                        "email": email,
-                        "username": username,
-                        "password": hashed_password
-                    })
+                conn.execute(insert_user, {
+                    "name": name,
+                    "email": email,
+                    "username": username,
+                    "password": hashed_password,
+                    "role": role
+                })
 
-            return render_template("signup_success.html", username=username)  # Success page
+                # Get the new user ID
+                user_id = conn.execute(text("SELECT LAST_INSERT_ID()")).scalar()
+
+                # If vendor, insert into the Vendor table using same ID
+                if role == "vendor":
+                    insert_vendor = text("INSERT INTO Vendor (VendorID) VALUES (:vendor_id)")
+                    conn.execute(insert_vendor, {"vendor_id": user_id})
+
+            return render_template("signup_success.html", username=username)
 
         except Exception as e:
-            return render_template("signup.html", error=f"An error occurred: {e}")  # Error handling
+            return render_template("signup.html", error=f"An error occurred: {e}")
 
-    return render_template("signup.html")  # Render the signup form
+    return render_template("signup.html")
+
 
 # Login route for users (GET to display form, POST to process form)
 @app.route("/login", methods=["GET", "POST"])
@@ -140,8 +148,18 @@ def login():
                 }).fetchone()
 
                 if result:
-                    session["username"] = result[1]  # Set the username in the session
-                    return redirect(url_for("home2"))  # Redirect to home page
+                    result = dict(result._mapping)  # Convert result to dictionary for key access
+
+                    session["username"] = result["Username"]
+                    session["role"] = result["Role"]
+                    session["vendor_id"] = result["UserID"] if result["Role"] == "vendor" else None
+
+                    if result["Role"] == "vendor":
+                        return redirect(url_for("vendor_dashboard"))
+                    elif result["Role"] == "admin":
+                        return redirect(url_for("admin_manage_products"))
+                    else:
+                        return redirect(url_for("home2"))
                 else:
                     return f"<h3>Invalid email or password.</h3><a href='{url_for('login')}'>Try again</a>"
 
@@ -150,17 +168,19 @@ def login():
 
     return render_template("login.html")  # Render the login form
 
-# Logout route to clear the session and redirect to login page
+
+# Logout route to clear the session and redirect to home.html page
 @app.route("/logout")
 def logout():
     session.clear()  # Clear the session
-    return redirect(url_for("login"))  # Redirect to login page
+    return redirect(url_for("login")) 
 
 @app.route("/vendor/dashboard")
 def vendor_dashboard():
-    vendor_name = session.get("vendor_name")
-    if not vendor_name:
+    if session.get("role") != "vendor":
         return redirect(url_for("login"))
+
+    vendor_name = session.get("username")
     return render_template("vendor_dashboard.html", vendor_name=vendor_name)
 
 @app.route("/products")
@@ -384,20 +404,26 @@ def checkout():
     if not cart:
         return redirect(url_for('cart'))
     
-    cart, total_price = enrich_cart(cart)  # Reuse logic
+    cart, total_price = enrich_cart(cart) 
 
     if request.method == 'POST':
-        # Payment form processing...
+        card_exp_date = request.form['exp_date']
+        card_exp_date = datetime.strptime(card_exp_date, '%Y-%m')
+
+        # Get the current date
+        current_date = datetime.now()
+
+        # Check if the card is expired
+        if card_exp_date < current_date:
+            # If expired, show error message
+            return render_template("checkout.html", products=cart, total_price=total_price, error="Your credit card is expired.")
+
+        # Proceed with order creation if the card is not expired
         order_id = create_order(cart, total_price, request.form['billing_address'])
         session['cart'] = []
         return redirect(url_for('order_confirmation', order_id=order_id))
 
     return render_template("checkout.html", products=cart, total_price=total_price)
-def create_order(cart, total_price, billing_address):
-    # Simulate order creation
-    order_id = "ORD123"  # Replace with actual order ID logic
-    # Here, you can save the order to the database
-    return order_id
 
 @app.route('/order_confirmation/<order_id>')
 def order_confirmation(order_id):
