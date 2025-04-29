@@ -236,6 +236,7 @@ def product_detail(product_id):
     product["categories"] = product["Category"].split() if product["Category"] else []
     return render_template("product_detail.html", product=product)
 
+
 @app.route("/add_to_cart/<int:product_id>", methods=["POST"])
 def add_to_cart(product_id):
     if 'cart' not in session:
@@ -307,6 +308,21 @@ def cart():
     return render_template("cart.html", products=cart, total_price=total_price, cart=cart)
 
 
+# Cart item model for SQLAlchemy (manages cart items in the database)
+class CartItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    quantity = db.Column(db.Integer, default=1)
+    product = db.relationship('Product', back_populates='cart_items')
+
+# Product model for SQLAlchemy (manages product information in the database)
+class Product(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    cart_items = db.relationship('CartItem', back_populates='product')
+
+
 @app.route("/vendor/add_product", methods=["GET", "POST"])
 def add_product():
     vendor_id = session.get("vendor_id")
@@ -371,6 +387,67 @@ def add_product():
 
     return render_template("add_product.html")
 
+
+@app.route("/add_to_cart/<int:product_id>", methods=["POST"])
+def add_to_cart(product_id):
+    if 'cart' not in session:
+        session['cart'] = []  # Initialize the cart if it doesn't exist
+
+    # Retrieve form data for color, size, and quantity
+    color = request.form.get('color')
+    size = request.form.get('size')
+    quantity = int(request.form.get('quantity', 1))
+
+    # Check if the item with selected color and size already exists in the cart
+    product_in_cart = next((item for item in session['cart'] if item['product_id'] == product_id and item['color'] == color and item['size'] == size), None)
+
+    if product_in_cart:
+        product_in_cart['quantity'] += quantity  # Increment quantity if the item is already in the cart
+    else:
+        session['cart'].append({
+            'product_id': product_id,
+            'color': color,
+            'size': size,
+            'quantity': quantity
+        })
+
+    session.modified = True  # Ensure session changes are saved
+    return redirect(url_for('cart'))  # Redirect to cart page
+
+def enrich_cart(cart):
+    if not cart:
+        return cart, 0
+
+    product_ids = [item['product_id'] for item in cart]
+    query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+        WHERE p.ProductID IN :product_ids
+    """)
+    
+    result = conn.execute(query, {"product_ids": tuple(product_ids)})
+    products = result.mappings().fetchall()
+
+    total_price = 0
+    for item in cart:
+        for product in products:
+            if item['product_id'] == product['ProductID']:
+                item['DiscountedPrice'] = product.get('DiscountedPrice', 0)
+                item['Title'] = product['Title']
+                item['ImageURL'] = product.get('ImageURL', '')
+                total_price += item['DiscountedPrice'] * item['quantity']
+    return cart, total_price
+
+@app.route('/cart')
+def cart():
+    cart = session.get('cart', [])  # Retrieve cart from session
+
+    # Enrich cart with product data and calculate total price
+    cart, total_price = enrich_cart(cart)
+
+    return render_template("cart.html", products=cart, total_price=total_price, cart=cart)
+
 @app.route('/update_cart', methods=['POST'])
 def update_cart():
     if 'cart' not in session:
@@ -396,27 +473,30 @@ def update_cart():
     session.modified = True
     return redirect(url_for('cart'))  # Redirect to cart page
 
-
-# Checkout route to display the checkout page with total price
-@app.route("/checkout")
+@app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
     cart = session.get('cart', [])
-    total_price = 0
-    product_ids = [item['product_id'] for item in cart]
+    if not cart:
+        return redirect(url_for('cart'))
+    
+    cart, total_price = enrich_cart(cart)  # Reuse logic
 
-    # Fixed the SQL query here:
-    query = text("""
-        SELECT p.ProductID, p.DiscountedPrice
-        FROM Products p
-        WHERE p.ProductID IN :product_ids
-    """)
-    result = conn.execute(query, {"product_ids": tuple(product_ids)})
-    products = result.fetchall()
+    if request.method == 'POST':
+        # Payment form processing...
+        order_id = create_order(cart, total_price, request.form['billing_address'])
+        session['cart'] = []
+        return redirect(url_for('order_confirmation', order_id=order_id))
 
-    for product in products:
-        for item in cart:
-            if item['product_id'] == product['ProductID']:
-                total_price += product['DiscountedPrice'] * item['quantity']
+    return render_template("checkout.html", products=cart, total_price=total_price)
+def create_order(cart, total_price, billing_address):
+    # Simulate order creation
+    order_id = "ORD123"  # Replace with actual order ID logic
+    # Here, you can save the order to the database
+    return order_id
+
+@app.route('/order_confirmation/<order_id>')
+def order_confirmation(order_id):
+    return render_template("order_confirmation.html", order_id=order_id)
 
     return render_template("checkout.html", products=products, total_price=total_price)
 from flask import flash, redirect, render_template, session, url_for
@@ -510,6 +590,7 @@ def admin_delete_product(product_id):
         flash(f"Error deleting product: {e}", "danger")
 
     return redirect(url_for("admin_manage_products"))
+
 
 
 # Run the Flask application
