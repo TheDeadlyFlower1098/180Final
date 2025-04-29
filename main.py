@@ -35,7 +35,18 @@ def home():
 def home2():
     username = session.get("username")
     if not username:
-        return redirect(url_for("login"))  # Redirect to login if username is not found
+        return redirect(url_for("login"))
+
+    # Add product query to prevent NameError
+    query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+        LIMIT 5
+    """)
+    result = conn.execute(query)
+    products = result.fetchall()
+
     return render_template("home.html", username=username, products=products)
 
 @app.route("/search")
@@ -61,63 +72,59 @@ def search():
 # Sign up route for new users (GET to display form, POST to process form)
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
-    if request.method == "POST":  # Handle form submission
+    if request.method == "POST":
         name = request.form["name"]
         email = request.form["email"]
         username = request.form["username"]
         password = request.form["password"]
         role = request.form["role"]
 
-        # Basic email validation
         if not email or "@" not in email:
             return render_template("signup.html", error="Please enter a valid email address.")
-        
-        # Password length validation
         if len(password) < 6:
             return render_template("signup.html", error="Password must be at least 6 characters long.")
 
-        # Hash the password using SHA-256
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
 
-        # Append '_vend' to username for vendors
-        if role == "vendor":
-            username += "_vend"
-
         try:
-            with engine.connect() as conn:
-                # Check if the email is already registered
-                check_email_query = text("SELECT * FROM User WHERE Email = :email")
-                email_result = conn.execute(check_email_query, {"email": email}).fetchone()
+            with engine.begin() as conn:
+                # Check for duplicate email or username
+                email_exists = conn.execute(text("SELECT * FROM User WHERE Email = :email"), {"email": email}).fetchone()
+                username_exists = conn.execute(text("SELECT * FROM User WHERE Username = :username"), {"username": username}).fetchone()
 
-                if email_result:
+                if email_exists:
                     return render_template("signup.html", error="Email is already registered.")
-
-                # Check if the username is already taken
-                check_username_query = text("SELECT * FROM User WHERE Username = :username")
-                username_result = conn.execute(check_username_query, {"username": username}).fetchone()
-
-                if username_result:
+                if username_exists:
                     return render_template("signup.html", error="Username is already taken.")
 
-                # Insert new user into the database
-                insert_query = text("""
-                    INSERT INTO User (Name, Email, Username, Password)
-                    VALUES (:name, :email, :username, :password)
+                # Insert user
+                insert_user = text("""
+                    INSERT INTO User (Name, Email, Username, Password, Role)
+                    VALUES (:name, :email, :username, :password, :role)
                 """)
-                with engine.begin() as conn:
-                    conn.execute(insert_query, {
-                        "name": name,
-                        "email": email,
-                        "username": username,
-                        "password": hashed_password
-                    })
+                conn.execute(insert_user, {
+                    "name": name,
+                    "email": email,
+                    "username": username,
+                    "password": hashed_password,
+                    "role": role
+                })
 
-            return render_template("signup_success.html", username=username)  # Success page
+                # Get the new user ID
+                user_id = conn.execute(text("SELECT LAST_INSERT_ID()")).scalar()
+
+                # If vendor, insert into the Vendor table using same ID
+                if role == "vendor":
+                    insert_vendor = text("INSERT INTO Vendor (VendorID) VALUES (:vendor_id)")
+                    conn.execute(insert_vendor, {"vendor_id": user_id})
+
+            return render_template("signup_success.html", username=username)
 
         except Exception as e:
-            return render_template("signup.html", error=f"An error occurred: {e}")  # Error handling
+            return render_template("signup.html", error=f"An error occurred: {e}")
 
-    return render_template("signup.html")  # Render the signup form
+    return render_template("signup.html")
+
 
 # Login route for users (GET to display form, POST to process form)
 @app.route("/login", methods=["GET", "POST"])
@@ -140,8 +147,18 @@ def login():
                 }).fetchone()
 
                 if result:
-                    session["username"] = result[1]  # Set the username in the session
-                    return redirect(url_for("home2"))  # Redirect to home page
+                    result = dict(result._mapping)  # Convert result to dictionary for key access
+
+                    session["username"] = result["Username"]
+                    session["role"] = result["Role"]
+                    session["vendor_id"] = result["UserID"] if result["Role"] == "vendor" else None
+
+                    if result["Role"] == "vendor":
+                        return redirect(url_for("vendor_dashboard"))
+                    elif result["Role"] == "admin":
+                        return redirect(url_for("admin_manage_products"))
+                    else:
+                        return redirect(url_for("home2"))
                 else:
                     return f"<h3>Invalid email or password.</h3><a href='{url_for('login')}'>Try again</a>"
 
@@ -149,6 +166,7 @@ def login():
             return f"<h3>Login error: {e}</h3>"  # Handle any errors during login
 
     return render_template("login.html")  # Render the login form
+
 
 # Logout route to clear the session and redirect to login page
 @app.route("/logout")
@@ -158,10 +176,13 @@ def logout():
 
 @app.route("/vendor/dashboard")
 def vendor_dashboard():
-    vendor_name = session.get("vendor_name")
-    if not vendor_name:
+    if session.get("role") != "vendor":
         return redirect(url_for("login"))
+
+    vendor_name = session.get("username")
     return render_template("vendor_dashboard.html", vendor_name=vendor_name)
+
+
 
 @app.route("/products")
 def products():
@@ -215,6 +236,78 @@ def product_detail(product_id):
     product["categories"] = product["Category"].split() if product["Category"] else []
     return render_template("product_detail.html", product=product)
 
+
+@app.route("/add_to_cart/<int:product_id>", methods=["POST"])
+def add_to_cart(product_id):
+    if 'cart' not in session:
+        session['cart'] = []  # Initialize the cart if it doesn't exist
+
+    # Retrieve form data for color, size, and quantity
+    color = request.form.get('color')
+    size = request.form.get('size')
+    quantity = int(request.form.get('quantity', 1))
+
+    # Check if the item with selected color and size already exists in the cart
+    product_in_cart = next((item for item in session['cart'] if item['product_id'] == product_id and item['color'] == color and item['size'] == size), None)
+
+    if product_in_cart:
+        product_in_cart['quantity'] += quantity  # Increment quantity if the item is already in the cart
+    else:
+        session['cart'].append({
+            'product_id': product_id,
+            'color': color,
+            'size': size,
+            'quantity': quantity
+        })
+
+    session.modified = True  # Ensure session changes are saved
+    return redirect(url_for('cart'))  # Redirect to cart page
+
+@app.route('/cart')
+def cart():
+    cart = session.get('cart', [])  # Retrieve cart from session
+    print("Cart:", cart)  # Debug: Check the contents of the cart
+
+    if not cart:  # If the cart is empty
+        return render_template("cart.html", products=[], total_price=0, cart=cart)
+
+    # Continue with your logic here to fetch product details
+    # Extract product_ids from cart
+    product_ids = [item['product_id'] for item in cart]
+    print("Product IDs:", product_ids)  # Debug: Check extracted product IDs
+
+    query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+        WHERE p.ProductID IN :product_ids
+    """)
+    
+    try:
+        result = conn.execute(query, {"product_ids": tuple(product_ids)})
+        products = result.mappings().fetchall()  # Use mappings to return rows as dictionaries
+        print("Products Fetched:", products)  # Debug: Check fetched products
+    except Exception as e:
+        print("Error executing query:", e)
+        return "There was an error fetching products"
+
+    # Merge the DiscountedPrice with each cart item
+    for item in cart:
+        for product in products:
+            if item['product_id'] == product['ProductID']:
+                item['DiscountedPrice'] = product['DiscountedPrice']
+                item['Title'] = product['Title']
+                item['ImageURL'] = product['ImageURL']
+
+    # Calculate total price based on cart items
+    total_price = 0
+    for item in cart:
+        if 'DiscountedPrice' in item:
+            total_price += item['DiscountedPrice'] * item['quantity']
+
+    return render_template("cart.html", products=cart, total_price=total_price, cart=cart)
+
+
 # Cart item model for SQLAlchemy (manages cart items in the database)
 class CartItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -229,6 +322,7 @@ class Product(db.Model):
     price = db.Column(db.Float, nullable=False)
     cart_items = db.relationship('CartItem', back_populates='product')
 
+
 @app.route("/vendor/add_product", methods=["GET", "POST"])
 def add_product():
     vendor_id = session.get("vendor_id")
@@ -239,6 +333,7 @@ def add_product():
         # Collect form data
         title = request.form["title"]
         description = request.form["description"]
+     
         warranty_period = request.form.get("warranty_period", type=int)
         color = request.form["color"]
         size = request.form["size"]
@@ -258,9 +353,9 @@ def add_product():
                 # Insert product
                 product_insert = text("""
                     INSERT INTO Products (Title, Description, WarrantyPeriod, Color, Size,
-                        InventoryAmount, OriginalPrice, DiscountedPrice, DiscountTime, VendorID)
+                        InventoryAmount, OriginalPrice, DiscountedPrice, DiscountTime, VendorID )
                     VALUES (:title, :description, :warranty_period, :color, :size,
-                        :inventory_amount, :original_price, :discounted_price, :discount_time, :vendor_id)
+                        :inventory_amount, :original_price, :discounted_price, :discount_time, :vendor_id )
                 """)
                 conn.execute(product_insert, {
                     "title": title,
@@ -402,6 +497,100 @@ def create_order(cart, total_price, billing_address):
 @app.route('/order_confirmation/<order_id>')
 def order_confirmation(order_id):
     return render_template("order_confirmation.html", order_id=order_id)
+
+    return render_template("checkout.html", products=products, total_price=total_price)
+from flask import flash, redirect, render_template, session, url_for
+from sqlalchemy import text
+
+@app.route("/vendor/manage")
+def manage_products():
+    vendor_id = session.get("vendor_id")
+    if not vendor_id:
+        return redirect(url_for("login"))
+
+    with engine.connect() as conn:
+        query = text("""
+            SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+            FROM Products p
+            LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+            WHERE p.VendorID = :vendor_id
+        """)
+        result = conn.execute(query, {"vendor_id": vendor_id})
+        products = result.fetchall()
+
+    return render_template("manage.html", products=products)
+
+
+@app.route("/vendor/delete_product/<int:product_id>", methods=["POST"])
+def delete_product(product_id):
+    vendor_id = session.get("vendor_id")
+    if not vendor_id:
+        return redirect(url_for("login"))
+    
+    with engine.connect() as conn:
+        product_check = text("SELECT * FROM Products WHERE ProductID = :product_id AND VendorID = :vendor_id")
+        product = conn.execute(product_check, {"product_id": product_id, "vendor_id": vendor_id}).fetchone()
+
+    if product:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM ProductImages WHERE ProductID = :product_id"), {"product_id": product_id})
+                conn.execute(text("DELETE FROM Products WHERE ProductID = :product_id"), {"product_id": product_id})
+                
+            flash("Product deleted successfully!", "success")
+        except Exception as e:
+            flash(f"Error deleting product: {e}", "error")
+    else:
+        flash("You can only delete your own products.", "danger")
+
+    return redirect(url_for("manage_products"))
+
+
+@app.route('/account', methods=['GET'])
+def account():
+    username = session.get('username')
+    if not username:
+        return redirect(url_for('login'))
+
+    user = conn.execute(
+        text('SELECT * FROM user WHERE Username = :username'),
+        {'username': username}
+    ).fetchone()
+
+    return render_template('vendor_dashboard.html', user=user)
+
+@app.route("/admin/manage", methods=["GET"])
+def admin_manage_products():
+    if session.get("role") != "admin":
+        flash("Unauthorized access. Admins only.", "danger")
+        return redirect(url_for("login"))
+
+    query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+    """)
+    products = conn.execute(query).fetchall()
+
+    return render_template("admin.html", products=products)
+
+
+@app.route("/admin/delete_product/<int:product_id>", methods=["POST"])
+def admin_delete_product(product_id):
+    if session.get("role") != "admin":
+        flash("Unauthorized access. Admins only.", "danger")
+        return redirect(url_for("login"))
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM ProductImages WHERE ProductID = :product_id"), {"product_id": product_id})
+            conn.execute(text("DELETE FROM Products WHERE ProductID = :product_id"), {"product_id": product_id})
+        flash("Product deleted successfully by admin.", "success")
+    except Exception as e:
+        flash(f"Error deleting product: {e}", "danger")
+
+    return redirect(url_for("admin_manage_products"))
+
 
 
 # Run the Flask application

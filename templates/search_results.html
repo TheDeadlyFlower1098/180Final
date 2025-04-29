@@ -12,6 +12,7 @@
           <img src="{{ product.ImageURL }}" alt="{{ product.Title }}" class="product-img">
           <p>{{ product.Description }}</p>
           <p><strong>Price:</strong> ${{ "%.2f"|format(product.OriginalPrice) }}</p>
+          <a href="{{ url_for('product_detail', product_id=product.ProductID) }}" class="cta-button">View Details</a>
         </div>
       {% endfor %}
     </div>
