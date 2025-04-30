@@ -126,7 +126,6 @@ def signup():
 
     return render_template("signup.html")
 
-
 # Login route for users (GET to display form, POST to process form)
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -168,8 +167,7 @@ def login():
 
     return render_template("login.html")  # Render the login form
 
-
-# Logout route to clear the session and redirect to home.html page
+# Logout route to clear the session and redirect to login page
 @app.route("/logout")
 def logout():
     session.clear()  # Clear the session
@@ -259,6 +257,7 @@ def add_product():
         # Collect form data
         title = request.form["title"]
         description = request.form["description"]
+     
         warranty_period = request.form.get("warranty_period", type=int)
         color = request.form["color"]
         size = request.form["size"]
@@ -278,9 +277,9 @@ def add_product():
                 # Insert product
                 product_insert = text("""
                     INSERT INTO Products (Title, Description, WarrantyPeriod, Color, Size,
-                        InventoryAmount, OriginalPrice, DiscountedPrice, DiscountTime, VendorID)
+                        InventoryAmount, OriginalPrice, DiscountedPrice, DiscountTime, VendorID )
                     VALUES (:title, :description, :warranty_period, :color, :size,
-                        :inventory_amount, :original_price, :discounted_price, :discount_time, :vendor_id)
+                        :inventory_amount, :original_price, :discounted_price, :discount_time, :vendor_id )
                 """)
                 conn.execute(product_insert, {
                     "title": title,
@@ -311,7 +310,6 @@ def add_product():
             return f"<h3>Error adding product: {e}</h3>"
 
     return render_template("add_product.html")
-
 
 @app.route("/add_to_cart/<int:product_id>", methods=["POST"])
 def add_to_cart(product_id):
@@ -428,6 +426,199 @@ def checkout():
 @app.route('/order_confirmation/<order_id>')
 def order_confirmation(order_id):
     return render_template("order_confirmation.html", order_id=order_id)
+
+@app.route("/vendor/manage")
+def manage_products():
+    vendor_id = session.get("vendor_id")
+    if not vendor_id:
+        return redirect(url_for("login"))
+
+    with engine.connect() as conn:
+        query = text("""
+            SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+            FROM Products p
+            LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+            WHERE p.VendorID = :vendor_id
+        """)
+        result = conn.execute(query, {"vendor_id": vendor_id})
+        products = result.fetchall()
+
+    return render_template("manage.html", products=products)
+
+
+@app.route("/vendor/delete_product/<int:product_id>", methods=["POST"])
+def delete_product(product_id):
+    vendor_id = session.get("vendor_id")
+    if not vendor_id:
+        return redirect(url_for("login"))
+    
+    with engine.connect() as conn:
+        product_check = text("SELECT * FROM Products WHERE ProductID = :product_id AND VendorID = :vendor_id")
+        product = conn.execute(product_check, {"product_id": product_id, "vendor_id": vendor_id}).fetchone()
+
+    if product:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM ProductImages WHERE ProductID = :product_id"), {"product_id": product_id})
+                conn.execute(text("DELETE FROM Products WHERE ProductID = :product_id"), {"product_id": product_id})
+                
+            flash("Product deleted successfully!", "success")
+        except Exception as e:
+            flash(f"Error deleting product: {e}", "error")
+    else:
+        flash("You can only delete your own products.", "danger")
+
+    return redirect(url_for("manage_products"))
+
+
+@app.route('/account', methods=['GET'])
+def account():
+    username = session.get('username')
+    if not username:
+        return redirect(url_for('login'))
+
+    user = conn.execute(
+        text('SELECT * FROM user WHERE Username = :username'),
+        {'username': username}
+    ).fetchone()
+
+    return render_template('vendor_dashboard.html', user=user)
+
+@app.route("/admin/manage", methods=["GET"])
+def admin_manage_products():
+    if session.get("role") != "admin":
+        flash("Unauthorized access. Admins only.", "danger")
+        return redirect(url_for("login"))
+
+    query = text("""
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+        FROM Products p
+        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+    """)
+    products = conn.execute(query).fetchall()
+
+    return render_template("admin.html", products=products)
+
+
+@app.route("/admin/delete_product/<int:product_id>", methods=["POST"])
+def admin_delete_product(product_id):
+    if session.get("role") != "admin":
+        flash("Unauthorized access. Admins only.", "danger")
+        return redirect(url_for("login"))
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM ProductImages WHERE ProductID = :product_id"), {"product_id": product_id})
+            conn.execute(text("DELETE FROM Products WHERE ProductID = :product_id"), {"product_id": product_id})
+        flash("Product deleted successfully by admin.", "success")
+
+    except Exception as e:
+        # Re-open a fresh connection to safely check for related orders
+        with engine.connect() as conn:
+            order_check = conn.execute(
+                text("SELECT 1 FROM OrderItems WHERE ProductID = :product_id LIMIT 1"),
+                {"product_id": product_id}
+            ).fetchone()
+
+        if order_check:
+            flash("Cannot delete: Product is part of an existing order.", "danger")
+        else:
+            flash(f"Error deleting product: {e}", "danger")
+
+    return redirect(url_for("admin_manage_products"))
+
+@app.route("/admin/edit_product/<int:product_id>", methods=["GET", "POST"])
+def admin_edit_product(product_id):
+    if session.get("role") != "admin":
+        flash("Unauthorized access. Admins only.", "danger")
+        return redirect(url_for("login"))
+
+    with engine.connect() as conn:
+        product = conn.execute(
+            text("SELECT * FROM Products WHERE ProductID = :product_id"),
+            {"product_id": product_id}
+        ).fetchone()
+
+    if not product:
+        flash("Product not found.", "warning")
+        return redirect(url_for("admin_manage_products"))
+
+    if request.method == "POST":
+        title = request.form["title"]
+        description = request.form["description"]
+        discounted_price = request.form.get("discounted_price", type=float)
+        color = request.form["color"]
+        size = request.form["size"]
+        inventory_amount = request.form.get("inventory_amount", type=int)
+
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    UPDATE Products
+                    SET Title = :title,
+                        Description = :description,
+                        DiscountedPrice = :discounted_price,
+                        Color = :color,
+                        Size = :size,
+                        InventoryAmount = :inventory_amount
+                    WHERE ProductID = :product_id
+                """), {
+                    "title": title,
+                    "description": description,
+                    "discounted_price": discounted_price,
+                    "color": color,
+                    "size": size,
+                    "inventory_amount": inventory_amount,
+                    "product_id": product_id
+                })
+
+            flash("Product updated successfully.", "success")
+            return redirect(url_for("admin_manage_products"))
+
+        except Exception as e:
+            flash(f"Error updating product: {e}", "danger")
+
+    return render_template("edit_product.html", product=product)
+
+@app.route("/vendor/edit_product/<int:product_id>", methods=["GET", "POST"])
+def edit_product(product_id):
+    vendor_id = session.get("vendor_id")
+    if not vendor_id:
+        return redirect(url_for("login"))
+
+    # Fetch product info
+    query = text("SELECT * FROM Products WHERE ProductID = :product_id AND VendorID = :vendor_id")
+    product = conn.execute(query, {"product_id": product_id, "vendor_id": vendor_id}).fetchone()
+
+    if not product:
+        flash("Product not found or not authorized.", "danger")
+        return redirect(url_for("manage_products"))
+
+    if request.method == "POST":
+        # Handle form submission and update logic
+        title = request.form["title"]
+        description = request.form["description"]
+        discounted_price = request.form.get("discounted_price", type=float)
+
+        update_query = text("""
+            UPDATE Products
+            SET Title = :title, Description = :description, DiscountedPrice = :discounted_price
+            WHERE ProductID = :product_id AND VendorID = :vendor_id
+        """)
+        conn.execute(update_query, {
+            "title": title,
+            "description": description,
+            "discounted_price": discounted_price,
+            "product_id": product_id,
+            "vendor_id": vendor_id
+        })
+
+        flash("Product updated successfully!", "success")
+        return redirect(url_for("manage_products"))
+
+    return render_template("edit_product.html", product=product)
+
+
 
 
 # Run the Flask application

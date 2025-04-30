@@ -1,40 +1,42 @@
 {% extends "vendor_base.html" %}
 
 {% block content %}
-<h1>Welcome to Bloom's vendorDashboard</h1>
-<a href="{{ url_for('add_product') }}" class="btn btn-success">+ Add New Product</a>
+<div class="vendor-dashboard">
+  <h1>Welcome to Bloom's vendorDashboard</h1>
+  <a href="{{ url_for('add_product') }}" class="btn btn-success">+ Add New Product</a>
 
-<h2>Your Products</h2>
+  <h2>Your Products</h2>
 
-{% if products %}
-  <div class="product-grid">
-    {% for product in products %}
-      <div class="product-card">
-        {% if product.ImageURL %}
-          <img src="{{ product.ImageURL }}" alt="{{ product.Title }}" class="product-img">
-        {% endif %}
-        <h3>{{ product.Title }}</h3>
-        <p><strong>Description:</strong> {{ product.Description }}</p>
-        <p><strong>Color:</strong> {{ product.Color }}</p>
-        <p><strong>Size:</strong> {{ product.Size }}</p>
-        <p><strong>Stock:</strong> {{ product.InventoryAmount }}</p>
-        <p>
-          <strong>Price:</strong>
-          {% if product.DiscountedPrice %}
-            <span class="original-price">${{ '%.2f'|format(product.OriginalPrice) }}</span>
-            <span class="discounted-price">${{ '%.2f'|format(product.DiscountedPrice) }}</span>
-          {% else %}
-            ${{ '%.2f'|format(product.OriginalPrice) }}
+  {% if products %}
+    <div class="product-grid">
+      {% for product in products %}
+        <div class="product-card">
+          {% if product.ImageURL %}
+            <img src="{{ product.ImageURL }}" alt="{{ product.Title }}" class="product-img">
           {% endif %}
-        </p>
-        <p><small>Warranty: {{ product.WarrantyPeriod }}</small></p>
+          <h3>{{ product.Title }}</h3>
+          <p><strong>Description:</strong> {{ product.Description }}</p>
+          <p><strong>Color:</strong> {{ product.Color }}</p>
+          <p><strong>Size:</strong> {{ product.Size }}</p>
+          <p><strong>Stock:</strong> {{ product.InventoryAmount }}</p>
+          <p>
+            <strong>Price:</strong>
+            {% if product.DiscountedPrice %}
+              <span class="original-price">${{ '%.2f'|format(product.OriginalPrice) }}</span>
+              <span class="discounted-price">${{ '%.2f'|format(product.DiscountedPrice) }}</span>
+            {% else %}
+              ${{ '%.2f'|format(product.OriginalPrice) }}
+            {% endif %}
+          </p>
+          <p><small>Warranty: {{ product.WarrantyPeriod }}</small></p>
 
-    <a href="#" class="btn btn-primary">Edit</a>
-    <a href="#" class="btn btn-danger">Delete</a>
-      </div>
-    {% endfor %}
-  </div>
-{% else %}
-  <p>You haven't added any products yet.</p>
-{% endif %}
+      <a href="#" class="btn btn-primary">Edit</a>
+      <a href="#" class="btn btn-danger">Delete</a>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>You haven't added any products yet.</p>
+  {% endif %}
+</div>
 {% endblock %}
