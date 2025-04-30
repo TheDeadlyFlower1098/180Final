@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Bloom - Admin Panel</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/base.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="../static/style/admin.css">
+</head>
+<body>
+
+<nav>
+  <div class="logo">Bloom 🌸</div>
+  <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+</nav>
+<h2>Edit Product</h2>
+<form method="POST">
+  <label>Title:</label>
+  <input type="text" name="title" value="{{ product.Title }}" required><br>
+
+  <label>Description:</label>
+  <textarea name="description">{{ product.Description }}</textarea><br>
+
+  <label>Discounted Price:</label>
+  <input type="number" name="discounted_price" step="0.01" value="{{ product.DiscountedPrice }}"><br>
+
+  <label>Color:</label>
+  <input type="text" name="color" value="{{ product.Color }}"><br>
+
+  <label>Size:</label>
+  <input type="text" name="size" value="{{ product.Size }}"><br>
+
+  <label>Inventory Amount:</label>
+  <input type="number" name="inventory_amount" value="{{ product.InventoryAmount }}"><br>
+
+  <button type="submit">Save Changes</button>
+</form>
+
+<footer class="site-footer">
+    <div class="footer-container">
+      <p>&copy; 2025 Bloom. All rights reserved.</p>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a> |
+        <a href="#">Terms of Service</a> |
+        <a href="#">Contact Us</a>
+      </div>
+    </div>
+</footer>
+
+</body>
+</html>

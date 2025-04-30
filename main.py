@@ -237,76 +237,6 @@ def product_detail(product_id):
     return render_template("product_detail.html", product=product)
 
 
-@app.route("/add_to_cart/<int:product_id>", methods=["POST"])
-def add_to_cart(product_id):
-    if 'cart' not in session:
-        session['cart'] = []  # Initialize the cart if it doesn't exist
-
-    # Retrieve form data for color, size, and quantity
-    color = request.form.get('color')
-    size = request.form.get('size')
-    quantity = int(request.form.get('quantity', 1))
-
-    # Check if the item with selected color and size already exists in the cart
-    product_in_cart = next((item for item in session['cart'] if item['product_id'] == product_id and item['color'] == color and item['size'] == size), None)
-
-    if product_in_cart:
-        product_in_cart['quantity'] += quantity  # Increment quantity if the item is already in the cart
-    else:
-        session['cart'].append({
-            'product_id': product_id,
-            'color': color,
-            'size': size,
-            'quantity': quantity
-        })
-
-    session.modified = True  # Ensure session changes are saved
-    return redirect(url_for('cart'))  # Redirect to cart page
-
-@app.route('/cart')
-def cart():
-    cart = session.get('cart', [])  # Retrieve cart from session
-    print("Cart:", cart)  # Debug: Check the contents of the cart
-
-    if not cart:  # If the cart is empty
-        return render_template("cart.html", products=[], total_price=0, cart=cart)
-
-    # Continue with your logic here to fetch product details
-    # Extract product_ids from cart
-    product_ids = [item['product_id'] for item in cart]
-    print("Product IDs:", product_ids)  # Debug: Check extracted product IDs
-
-    query = text("""
-        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
-        FROM Products p
-        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
-        WHERE p.ProductID IN :product_ids
-    """)
-    
-    try:
-        result = conn.execute(query, {"product_ids": tuple(product_ids)})
-        products = result.mappings().fetchall()  # Use mappings to return rows as dictionaries
-        print("Products Fetched:", products)  # Debug: Check fetched products
-    except Exception as e:
-        print("Error executing query:", e)
-        return "There was an error fetching products"
-
-    # Merge the DiscountedPrice with each cart item
-    for item in cart:
-        for product in products:
-            if item['product_id'] == product['ProductID']:
-                item['DiscountedPrice'] = product['DiscountedPrice']
-                item['Title'] = product['Title']
-                item['ImageURL'] = product['ImageURL']
-
-    # Calculate total price based on cart items
-    total_price = 0
-    for item in cart:
-        if 'DiscountedPrice' in item:
-            total_price += item['DiscountedPrice'] * item['quantity']
-
-    return render_template("cart.html", products=cart, total_price=total_price, cart=cart)
-
 
 # Cart item model for SQLAlchemy (manages cart items in the database)
 class CartItem(db.Model):
@@ -498,9 +428,7 @@ def create_order(cart, total_price, billing_address):
 def order_confirmation(order_id):
     return render_template("order_confirmation.html", order_id=order_id)
 
-    return render_template("checkout.html", products=products, total_price=total_price)
-from flask import flash, redirect, render_template, session, url_for
-from sqlalchemy import text
+
 
 @app.route("/vendor/manage")
 def manage_products():
@@ -586,10 +514,113 @@ def admin_delete_product(product_id):
             conn.execute(text("DELETE FROM ProductImages WHERE ProductID = :product_id"), {"product_id": product_id})
             conn.execute(text("DELETE FROM Products WHERE ProductID = :product_id"), {"product_id": product_id})
         flash("Product deleted successfully by admin.", "success")
+
     except Exception as e:
-        flash(f"Error deleting product: {e}", "danger")
+        # Re-open a fresh connection to safely check for related orders
+        with engine.connect() as conn:
+            order_check = conn.execute(
+                text("SELECT 1 FROM OrderItems WHERE ProductID = :product_id LIMIT 1"),
+                {"product_id": product_id}
+            ).fetchone()
+
+        if order_check:
+            flash("Cannot delete: Product is part of an existing order.", "danger")
+        else:
+            flash(f"Error deleting product: {e}", "danger")
 
     return redirect(url_for("admin_manage_products"))
+
+@app.route("/admin/edit_product/<int:product_id>", methods=["GET", "POST"])
+def admin_edit_product(product_id):
+    if session.get("role") != "admin":
+        flash("Unauthorized access. Admins only.", "danger")
+        return redirect(url_for("login"))
+
+    with engine.connect() as conn:
+        product = conn.execute(
+            text("SELECT * FROM Products WHERE ProductID = :product_id"),
+            {"product_id": product_id}
+        ).fetchone()
+
+    if not product:
+        flash("Product not found.", "warning")
+        return redirect(url_for("admin_manage_products"))
+
+    if request.method == "POST":
+        title = request.form["title"]
+        description = request.form["description"]
+        discounted_price = request.form.get("discounted_price", type=float)
+        color = request.form["color"]
+        size = request.form["size"]
+        inventory_amount = request.form.get("inventory_amount", type=int)
+
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    UPDATE Products
+                    SET Title = :title,
+                        Description = :description,
+                        DiscountedPrice = :discounted_price,
+                        Color = :color,
+                        Size = :size,
+                        InventoryAmount = :inventory_amount
+                    WHERE ProductID = :product_id
+                """), {
+                    "title": title,
+                    "description": description,
+                    "discounted_price": discounted_price,
+                    "color": color,
+                    "size": size,
+                    "inventory_amount": inventory_amount,
+                    "product_id": product_id
+                })
+
+            flash("Product updated successfully.", "success")
+            return redirect(url_for("admin_manage_products"))
+
+        except Exception as e:
+            flash(f"Error updating product: {e}", "danger")
+
+    return render_template("edit_product.html", product=product)
+
+@app.route("/vendor/edit_product/<int:product_id>", methods=["GET", "POST"])
+def edit_product(product_id):
+    vendor_id = session.get("vendor_id")
+    if not vendor_id:
+        return redirect(url_for("login"))
+
+    # Fetch product info
+    query = text("SELECT * FROM Products WHERE ProductID = :product_id AND VendorID = :vendor_id")
+    product = conn.execute(query, {"product_id": product_id, "vendor_id": vendor_id}).fetchone()
+
+    if not product:
+        flash("Product not found or not authorized.", "danger")
+        return redirect(url_for("manage_products"))
+
+    if request.method == "POST":
+        # Handle form submission and update logic
+        title = request.form["title"]
+        description = request.form["description"]
+        discounted_price = request.form.get("discounted_price", type=float)
+
+        update_query = text("""
+            UPDATE Products
+            SET Title = :title, Description = :description, DiscountedPrice = :discounted_price
+            WHERE ProductID = :product_id AND VendorID = :vendor_id
+        """)
+        conn.execute(update_query, {
+            "title": title,
+            "description": description,
+            "discounted_price": discounted_price,
+            "product_id": product_id,
+            "vendor_id": vendor_id
+        })
+
+        flash("Product updated successfully!", "success")
+        return redirect(url_for("manage_products"))
+
+    return render_template("edit_product.html", product=product)
+
 
 
 
