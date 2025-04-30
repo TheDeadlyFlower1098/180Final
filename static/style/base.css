@@ -540,3 +540,25 @@ background-color: #ff1493;
 .cart-button:hover {
   background-color: #ff1493;
 }
+
+.btn-edit {
+  background-color: #4CAF50;
+  color: white;
+  padding: 6px 10px;
+  text-decoration: none;
+  border-radius: 4px;
+  margin-right: 8px;
+}
+
+.btn-edit i {
+  margin-right: 4px;
+}
+
+form button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
