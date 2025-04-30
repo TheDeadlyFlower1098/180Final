@@ -5,6 +5,19 @@
   <h1>Welcome to Bloom's vendorDashboard</h1>
   <a href="{{ url_for('add_product') }}" class="btn btn-success">+ Add New Product</a>
 
+  <h2>Account Information</h2>
+
+  {% if user %}
+      <ul>
+          <li><strong>Name:</strong> {{ user.Name }}</li>
+          <li><strong>Email:</strong> {{ user.Email }}</li>
+          <li><strong>Username:</strong> {{ user.Username }}</li>
+          <li><strong>Role:</strong> {{ user.Role }}</li>
+      </ul>
+  {% else %}
+      <p>User not found.</p>
+  {% endif %}
+
   <h2>Your Products</h2>
 
   {% if products %}

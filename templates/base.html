@@ -22,11 +22,14 @@
   <div class="nav-links" id="navLinks">
     <a href="/">Home</a>  <!-- Home route -->
     <a href="/products">Products</a>  <!-- Products page -->
-    <a href="/signup">Sign up</a>  <!-- Sign-up page -->
-    <a href="/login">Log in</a>  <!-- Login page -->
     {% if session.get('username') %}
-        <a href="{{ url_for('logout') }}">Log out</a>
-    {% endif %}
+    <!-- Show only if logged in -->
+    <a href="{{ url_for('logout') }}">Logout</a>
+  {% else %}
+    <!-- Show only if not logged in -->
+    <a href="{{ url_for('login') }}">Login</a>
+    <a href="{{ url_for('signup') }}">Signup</a>
+  {% endif %}
   </div>
 
   <!-- Search bar -->
