@@ -542,7 +542,7 @@ background-color: #ff1493;
 }
 
 .btn-edit {
-  background-color: #ff69b4;
+  background-color: #4CAF50;
   color: white;
   padding: 6px 10px;
   text-decoration: none;
@@ -555,7 +555,7 @@ background-color: #ff1493;
 }
 
 form button {
-  background-color: #ff69b4;
+  background-color: #f44336;
   color: white;
   border: none;
   padding: 6px 10px;
