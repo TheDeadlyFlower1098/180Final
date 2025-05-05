@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />  <!-- Set the character encoding to UTF-8 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>  <!-- Responsive design for mobile devices -->
     <title>Bloom</title>  <!-- Title displayed in the browser tab -->
-    <link rel="stylesheet" href="../static/style/base.css">  <!-- Link to the main stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/base.css') }}"> <!-- Link to the main stylesheet -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">  <!-- Font Awesome for icons -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   </head>
