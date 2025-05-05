@@ -14,6 +14,12 @@
         </ul>
         <h3 style="margin-bottom: 30px; color: #333;">Total Price: {{ total_price }} USD</h3>
 
+        {% if error %}
+        <div style="color: red; margin-bottom: 20px;">
+            <strong>{{ error }}</strong>
+        </div>
+        {% endif %}
+
         <h4 style="margin-bottom: 20px; color: #333;">Enter Payment Information:</h4>
         <form method="POST" action="{{ url_for('checkout') }}">
             <label for="card_number">Credit Card Number:</label>
@@ -28,7 +34,7 @@
             <label for="billing_address">Billing Address:</label>
             <input type="text" id="billing_address" name="billing_address" required>
 
-            <button type="submit">Complete Payment</button>
+            <button type="submit">Place Order</button>
         </form>
     </div>
     {% else %}
