@@ -23,8 +23,9 @@
     <a href="/">Home</a>  <!-- Home route -->
     <a href="/products">Products</a>  <!-- Products page -->
     {% if session.get('username') %}
+    <a href="{{ url_for('chat_users') }}">📨 Chat</a>
     <!-- Show only if logged in -->
-    <a href="{{ url_for('logout') }}">Logout</a>
+         <a href="{{ url_for('logout') }}">Logout</a>
   {% else %}
     <!-- Show only if not logged in -->
     <a href="{{ url_for('login') }}">Login</a>

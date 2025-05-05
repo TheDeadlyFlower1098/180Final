@@ -150,8 +150,8 @@ def login():
 
                 if result:
                     result = dict(result._mapping)
+                    session["user_id"] = result["UserID"] 
 
-                    session["user_id"] = result["UserID"]
                     session["username"] = result["Username"]
                     session["role"] = result["Role"]
 
@@ -285,6 +285,7 @@ def add_product():
         inventory_amount = request.form.get("inventory_amount", type=int)
         original_price = request.form.get("original_price", type=float)
         discounted_price = request.form.get("discounted_price", type=float)
+        discounted_price = float(discounted_price) if discounted_price else original_price
         discount_time_str = request.form["discount_time"]  # Get the datetime string
         discount_time = None
 
@@ -641,45 +642,137 @@ def admin_edit_product(product_id):
             flash(f"Error updating product: {e}", "danger")
 
     return render_template("edit_product.html", product=product)
-
 @app.route("/vendor/edit_product/<int:product_id>", methods=["GET", "POST"])
 def edit_product(product_id):
     vendor_id = session.get("vendor_id")
     if not vendor_id:
         return redirect(url_for("login"))
 
-    # Fetch product info
-    query = text("SELECT * FROM Products WHERE ProductID = :product_id AND VendorID = :vendor_id")
-    product = conn.execute(query, {"product_id": product_id, "vendor_id": vendor_id}).fetchone()
+    with engine.begin() as conn: 
+        query = text("SELECT * FROM Products WHERE ProductID = :product_id AND VendorID = :vendor_id")
+        product = conn.execute(query, {"product_id": product_id, "vendor_id": vendor_id}).fetchone()
 
-    if not product:
-        flash("Product not found or not authorized.", "danger")
-        return redirect(url_for("manage_products"))
+        if not product:
+            flash("Product not found or not authorized.", "danger")
+            return redirect(url_for("manage_products"))
 
-    if request.method == "POST":
-        # Handle form submission and update logic
-        title = request.form["title"]
-        description = request.form["description"]
-        discounted_price = request.form.get("discounted_price", type=float)
+        if request.method == "POST":
+            title = request.form["title"]
+            description = request.form["description"]
+            discounted_price = request.form.get("discounted_price", type=float)
 
-        update_query = text("""
-            UPDATE Products
-            SET Title = :title, Description = :description, DiscountedPrice = :discounted_price
-            WHERE ProductID = :product_id AND VendorID = :vendor_id
-        """)
-        conn.execute(update_query, {
-            "title": title,
-            "description": description,
-            "discounted_price": discounted_price,
-            "product_id": product_id,
-            "vendor_id": vendor_id
-        })
+            update_query = text("""
+                UPDATE Products
+                SET Title = :title, Description = :description, DiscountedPrice = :discounted_price
+                WHERE ProductID = :product_id AND VendorID = :vendor_id
+            """)
+            conn.execute(update_query, {
+                "title": title,
+                "description": description,
+                "discounted_price": discounted_price,
+                "product_id": product_id,
+                "vendor_id": vendor_id
+            })
 
-        flash("Product updated successfully!", "success")
-        return redirect(url_for("manage_products"))
+            flash("Product updated successfully!", "success")
+            return redirect(url_for("manage_products"))
 
     return render_template("edit_product.html", product=product)
 
+@app.route("/chat/<int:receiver_id>", methods=["GET", "POST"])
+def chat(receiver_id):
+    sender_id = session.get("user_id") #get the id of user thats logged in
+    if not sender_id:
+        flash("Please log in to chat.", "warning")
+        return redirect(url_for("login")) #return to log in page if user not in session
+
+    if request.method == "POST":
+        message = request.form["message"] #where the messages send
+        image_url = request.form.get("image_url")  #sending images
+
+        with engine.begin() as conn: #insert into databse
+            conn.execute(text("""
+                INSERT INTO Chat (SenderID, ReceiverID, Message, ImageURL, Timestamp)
+                VALUES (:sender, :receiver, :message, :image_url, :timestamp)
+            """), {
+                "sender": sender_id,
+                "receiver": receiver_id,
+                "message": message,
+                "image_url": image_url,
+                "timestamp": datetime.utcnow()
+            })
+
+    
+        return redirect(url_for("chat", receiver_id=receiver_id)) #reloads page to show new messages
+
+   #get both messages
+    messages = fetch_messages(sender_id, receiver_id)
+    receiver = fetch_receiver_name(receiver_id)
+
+   #check role in database to determine the base
+    base_template = "vendor_base.html" if session.get("role") == "vendor" else "base.html"
+
+    return render_template(
+        "chat.html",
+        messages=messages,
+        receiver_name=receiver,
+        receiver_id=receiver_id,
+        base_template=base_template  #pass the logic to not have duplicate chat
+    )
+
+# fetch messages between the sender and receiver
+def fetch_messages(sender_id, receiver_id):
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT c.*, u.Username AS SenderName
+            FROM Chat c
+            JOIN User u ON c.SenderID = u.UserID
+            WHERE (c.SenderID = :sender_id AND c.ReceiverID = :receiver_id)
+               OR (c.SenderID = :receiver_id AND c.ReceiverID = :sender_id)
+            ORDER BY c.Timestamp ASC
+        """), {
+            "sender_id": sender_id,
+            "receiver_id": receiver_id
+        })
+        return result.fetchall()
+
+# Fetch the name of the receiver
+def fetch_receiver_name(receiver_id):
+    with engine.connect() as conn:
+        return conn.execute(text("SELECT Username FROM User WHERE UserID = :id"), {"id": receiver_id}).scalar()
+
+
+#list all the users 
+@app.route("/chat_users", methods=["GET", "POST"])
+def chat_users():
+    current_user_id = session.get("user_id")
+    if not current_user_id:
+        flash("Please log in to view users.", "warning")
+        return redirect(url_for("login"))
+    
+    search_query = request.form.get("search_query", "") 
+
+    with engine.connect() as conn:
+        if search_query:
+            #search for user
+            users = conn.execute(text("""
+                SELECT UserID, Username 
+                FROM User 
+                WHERE UserID != :current_user_id 
+                AND Username LIKE :search_query
+            """), {"current_user_id": current_user_id, "search_query": f"%{search_query}%"}).fetchall()
+        else:
+            # show all the users if you cant find the user
+            users = conn.execute(text("""
+                SELECT UserID, Username 
+                FROM User 
+                WHERE UserID != :current_user_id
+            """), {"current_user_id": current_user_id}).fetchall()
+
+    # Set base_template here
+    base_template = "vendor_base.html" if session.get("role") == "vendor" else "base.html"
+    
+    return render_template("chat_users.html", users=users, search_query=search_query, base_template=base_template)
 # Run the Flask application
 if __name__ == '__main__':
     app.run(debug=True)
