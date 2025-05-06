@@ -5,26 +5,41 @@
     <div class="product-detail">
 
         <img src="{{ product.ImageURL if product.ImageURL else 'https://via.placeholder.com/150' }}"
-        alt="{{ product.Title }}"
-        style="max-width: 400px; height: auto; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-
+             alt="{{ product.Title }}"
+             style="max-width: 400px; height: auto; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
 
         <h2 class="product-title">{{ product.Title }}</h2>
         <p class="product-description">{{ product.Description }}</p>
         <p class="product-category">Category: {{ product.Category }}</p>
+
         <p>
             {% if product.OriginalPrice and product.OriginalPrice > product.DiscountedPrice %}
-            <span style="text-decoration: line-through; color: gray;">
-                ${{ "%.2f"|format(product.OriginalPrice) }}
-            </span>
-            <span style="color: red; font-weight: bold;">
-                ${{ "%.2f"|format(product.DiscountedPrice) }}
-            </span>
+                <span class="original-price">
+                    ${{ "%.2f"|format(product.OriginalPrice) }}
+                </span>
+                <span class="discounted-price">
+                    ${{ "%.2f"|format(product.DiscountedPrice) }}
+                </span>
+                {% if product.DiscountTime %}
+                    {% set time_left = product.DiscountTime - current_time %}
+                    {% if time_left.total_seconds() > 0 %}
+                        <br>
+                        <small class="discount-countdown">
+                            Discount ends in: {{ time_left.days }}d {{ (time_left.seconds // 3600) % 24 }}h {{ (time_left.seconds // 60) % 60 }}m
+                        </small>
+                    {% else %}
+                        <br>
+                        <small class="discount-countdown">Discount has ended</small>
+                    {% endif %}
+                {% endif %}
             {% else %}
-            <span style="font-weight: bold;">${{ "%.2f"|format(product.DiscountedPrice) }}</span>
+                <span class="discounted-price">
+                    ${{ "%.2f"|format(product.DiscountedPrice) }}
+                </span>
             {% endif %}
-          </p>
-        <p class="product-warranty">Warranty: {{ product.WarrantyPeriod }}</p>
+        </p>
+
+        <p class="product-warranty">Warranty: {{ product.WarrantyPeriod }} month(s)</p>
         <p class="product-inventory">In Stock: {{ product.Inventory }}</p>
 
         <form action="{{ url_for('add_to_cart', product_id=product.ProductID) }}" method="post">
@@ -37,7 +52,7 @@
                     {% endfor %}
                 </select>
             {% endif %}
-        
+
             {% if product.sizes %}
                 <label for="size">Size:</label>
                 <select name="size" id="size">
@@ -46,18 +61,26 @@
                     {% endfor %}
                 </select>
             {% endif %}
-        
+
             <label for="quantity">Quantity:</label>
             <input type="number" name="quantity" id="quantity" value="1" min="1">
-        
+
             <button class="cta-button" type="submit">Add to Cart</button>
         </form>
 
         <div class="product-nav-buttons" style="margin-top: 20px;">
             <a href="{{ url_for('products') }}" class="cta-button" style="margin-right: 10px;">← Back to Products</a>
-            <a href="{{ url_for('cart') }}" class="cta-button">🛒 Go to Cart</a>
         </div>
-        
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                        <li class="flash {{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
 
     </div>
 </div>

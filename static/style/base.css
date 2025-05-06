@@ -659,16 +659,6 @@ form button {
   margin: 6px 0;
 }
 
-.original-price {
-  text-decoration: line-through;
-  color: #888;
-  margin-right: 8px;
-}
-
-.discounted-price {
-  color: #ff69b4;
-  font-weight: bold;
-}
 
 .product-img {
   width: 100%;
@@ -676,4 +666,106 @@ form button {
   object-fit: cover;
   border-radius: 8px;
   margin-bottom: 12px;
+}
+
+.form-container {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 30px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.form-container h2 {
+  text-align: center;
+  margin-bottom: 25px;
+  color: #333;
+}
+
+
+.form-container label {
+  display: block;
+  margin: 15px 0 6px;
+  font-weight: 600;
+  color: #444;
+}
+
+.form-container input[type="text"],
+.form-container input[type="number"],
+.form-container input[type="datetime-local"],
+.form-container textarea,
+.form-container select {
+  width: 100%;
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  transition: border-color 0.3s;
+}
+
+.form-container input:focus,
+.form-container textarea:focus,
+.form-container select:focus {
+  border-color: #8e44ad;
+  outline: none;
+  background-color: #fff;
+}
+
+.cta-button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 12px;
+  background-color:#ff1493;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.cta-button:hover {
+  background-color: #d10c75;
+}
+
+.flashes {
+  margin-top: 20px;
+  padding: 10px;
+  list-style: none;
+  border-radius: 8px;
+}
+
+.flash.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.flash.danger {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.flash.warning {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.original-price {
+  text-decoration: line-through;
+  color: gray;
+  margin-right: 8px;
+}
+
+.discounted-price {
+  color: red;
+  font-weight: bold;
+}
+
+.discount-countdown {
+  color: #666;
+  font-size: 0.9em;
 }

@@ -98,7 +98,7 @@ def signup():
                 if username_exists:
                     return render_template("signup.html", error="Username is already taken.")
 
-                # Insert into User table
+                # Insert user
                 insert_user = text("""
                     INSERT INTO User (Name, Email, Username, Password, Role)
                     VALUES (:name, :email, :username, :password, :role)
@@ -111,16 +111,13 @@ def signup():
                     "role": role
                 })
 
-                # Get the new user's ID
+                # Get the new user ID
                 user_id = conn.execute(text("SELECT LAST_INSERT_ID()")).scalar()
 
-                # Insert into appropriate role table
+                # If vendor, insert into the Vendor table using same ID
                 if role == "vendor":
-                    conn.execute(text("INSERT INTO Vendor (VendorID) VALUES (:id)"), {"id": user_id})
-                elif role == "admin":
-                    conn.execute(text("INSERT INTO Admin (AdminID) VALUES (:id)"), {"id": user_id})
-                else:
-                    conn.execute(text("INSERT INTO Customer (CustomerID) VALUES (:id)"), {"id": user_id})
+                    insert_vendor = text("INSERT INTO Vendor (VendorID) VALUES (:vendor_id)")
+                    conn.execute(insert_vendor, {"vendor_id": user_id})
 
             return render_template("signup_success.html", username=username)
 
@@ -129,16 +126,18 @@ def signup():
 
     return render_template("signup.html")
 
+
 # Login route for users (GET to display form, POST to process form)
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         email = request.form["Email"]
         password = request.form["password"]
-        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()  # Hash the entered password
 
         try:
             with engine.connect() as conn:
+                # SQL query to check email and password against the database
                 query = text("""
                     SELECT * FROM User
                     WHERE Email = :email AND Password = :password
@@ -149,34 +148,33 @@ def login():
                 }).fetchone()
 
                 if result:
-                    result = dict(result._mapping)
-                    session["user_id"] = result["UserID"] 
+                    result = dict(result._mapping)  # Convert result to dictionary for key access
 
+                    session["user_id"] = result["UserID"]  # FIXED: now chat works!
                     session["username"] = result["Username"]
                     session["role"] = result["Role"]
+                    session["vendor_id"] = result["UserID"] if result["Role"] == "vendor" else None
 
-                    # Set role-specific session keys
                     if result["Role"] == "vendor":
-                        session["vendor_id"] = result["UserID"]
                         return redirect(url_for("vendor_dashboard"))
                     elif result["Role"] == "admin":
                         return redirect(url_for("admin_manage_products"))
                     else:
-                        session["customer_id"] = result["UserID"]
                         return redirect(url_for("home2"))
-
-                return render_template("login.html", error="Invalid email or password.")
+                else:
+                    return f"<h3>Invalid email or password.</h3><a href='{url_for('login')}'>Try again</a>"
 
         except Exception as e:
-            return render_template("login.html", error=f"Login error: {e}")
+            return f"<h3>Login error: {e}</h3>"  # Handle any errors during login
 
-    return render_template("login.html")
+    return render_template("login.html")  # Render the login form
+
 
 # Logout route to clear the session and redirect to login page
 @app.route("/logout")
 def logout():
     session.clear()  # Clear the session
-    return redirect(url_for("login")) 
+    return redirect(url_for("login"))  # Redirect to login page
 
 @app.route("/vendor/dashboard")
 def vendor_dashboard():
@@ -185,6 +183,8 @@ def vendor_dashboard():
 
     vendor_name = session.get("username")
     return render_template("vendor_dashboard.html", vendor_name=vendor_name)
+
+
 
 @app.route("/products")
 def products():
@@ -236,37 +236,24 @@ def product_detail(product_id):
     product["colors"] = product["Color"].split() if product["Color"] else []
     product["sizes"] = product["Size"].split() if product["Size"] else []
     product["categories"] = product["Category"].split() if product["Category"] else []
-    return render_template("product_detail.html", product=product)
+    return render_template("product_detail.html", product=product, current_time=datetime.utcnow())
 
 # Cart item model for SQLAlchemy (manages cart items in the database)
 class CartItem(db.Model):
-    __tablename__ = 'CartItems'
     id = db.Column(db.Integer, primary_key=True)
-    quantity = db.Column(db.Integer, nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('Products.ProductID'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    quantity = db.Column(db.Integer, default=1)
     product = db.relationship('Product', back_populates='cart_items')
 
 # Product model for SQLAlchemy (manages product information in the database)
 class Product(db.Model):
-    __tablename__ = 'Products'  # This explicitly defines the table name
-    ProductID = db.Column(db.Integer, primary_key=True)  # Adjust to match your schema
-    Title = db.Column(db.String(200), nullable=False)
-    Description = db.Column(db.Text, nullable=True)
-    WarrantyPeriod = db.Column(db.Integer, nullable=True)
-    InventoryAmount = db.Column(db.Integer, nullable=False)
-    OriginalPrice = db.Column(db.Numeric(10, 2), nullable=False)
-    DiscountedPrice = db.Column(db.Numeric(10, 2), nullable=True)
-    DiscountTime = db.Column(db.DateTime, nullable=True)
-    Color = db.Column(db.String(255), nullable=True)
-    Size = db.Column(db.String(255), nullable=True)
-    VendorID = db.Column(db.Integer, db.ForeignKey('Vendor.VendorID'), nullable=False)
-    AdminID = db.Column(db.Integer, db.ForeignKey('Admin.AdminID'), nullable=False)
-    Category = db.Column(db.String(255), nullable=True)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Float, nullable=False)
     cart_items = db.relationship('CartItem', back_populates='product')
-    
-    @property
-    def price(self):
-        return self.DiscountedPrice or self.OriginalPrice
+
+
+from datetime import datetime
 
 @app.route("/vendor/add_product", methods=["GET", "POST"])
 def add_product():
@@ -278,30 +265,36 @@ def add_product():
         # Collect form data
         title = request.form["title"]
         description = request.form["description"]
-     
         warranty_period = request.form.get("warranty_period", type=int)
         color = request.form["color"]
         size = request.form["size"]
         inventory_amount = request.form.get("inventory_amount", type=int)
         original_price = request.form.get("original_price", type=float)
         discounted_price = request.form.get("discounted_price", type=float)
-        discounted_price = float(discounted_price) if discounted_price else original_price
-        discount_time_str = request.form["discount_time"]  # Get the datetime string
+        discount_time_str = request.form.get("discount_time")
         discount_time = None
 
+        # Ensure that discount_time is only processed if it is provided
         if discount_time_str:
-            discount_time = datetime.strptime(discount_time_str, "%Y-%m-%dT%H:%M")
+            try:
+                discount_time = datetime.strptime(discount_time_str, "%Y-%m-%dT%H:%M")
+            except ValueError:
+                flash("Invalid discount time format! Please use YYYY-MM-DDTHH:MM", "danger")
+                return render_template("add_product.html")
 
-        image_urls = request.form.getlist("image_urls")  # Accept multiple image URLs
+        # Ensure all required fields have values
+        if original_price is None:
+            flash("Original price is required!", "danger")
+            return render_template("add_product.html")
 
         try:
             with engine.begin() as conn:
                 # Insert product
                 product_insert = text("""
                     INSERT INTO Products (Title, Description, WarrantyPeriod, Color, Size,
-                        InventoryAmount, OriginalPrice, DiscountedPrice, DiscountTime, VendorID )
+                        InventoryAmount, OriginalPrice, DiscountedPrice, DiscountTime, VendorID)
                     VALUES (:title, :description, :warranty_period, :color, :size,
-                        :inventory_amount, :original_price, :discounted_price, :discount_time, :vendor_id )
+                        :inventory_amount, :original_price, :discounted_price, :discount_time, :vendor_id)
                 """)
                 conn.execute(product_insert, {
                     "title": title,
@@ -311,7 +304,7 @@ def add_product():
                     "size": size,
                     "inventory_amount": inventory_amount,
                     "original_price": original_price,
-                    "discounted_price": discounted_price,
+                    "discounted_price": discounted_price if discounted_price else None,  # Handle None if not provided
                     "discount_time": discount_time,
                     "vendor_id": vendor_id
                 })
@@ -320,6 +313,7 @@ def add_product():
                 product_id = conn.execute(text("SELECT LAST_INSERT_ID()")).scalar()
 
                 # Insert images
+                image_urls = request.form.getlist("image_urls")  # Accept multiple image URLs
                 for url in image_urls:
                     if url.strip():  # Avoid empty fields
                         image_insert = text("INSERT INTO ProductImages (ProductID, ImageURL) VALUES (:product_id, :image_url)")
@@ -329,9 +323,11 @@ def add_product():
                 return redirect(url_for("vendor_dashboard"))
 
         except Exception as e:
-            return f"<h3>Error adding product: {e}</h3>"
+            flash(f"Error adding product: {e}", "danger")
+            return render_template("add_product.html")
 
     return render_template("add_product.html")
+
 
 @app.route("/add_to_cart/<int:product_id>", methods=["POST"])
 def add_to_cart(product_id):
@@ -424,75 +420,27 @@ def checkout():
     if not cart:
         return redirect(url_for('cart'))
     
-    cart, total_price = enrich_cart(cart)
+    cart, total_price = enrich_cart(cart)  # Reuse logic
 
     if request.method == 'POST':
-        card_exp_date = request.form['exp_date']
-        card_exp_date = datetime.strptime(card_exp_date, '%Y-%m')
-
-        # Get the current date
-        current_date = datetime.now()
-
-        # Check if the card is expired
-        if card_exp_date < current_date:
-            # If expired, show error message
-            return render_template("checkout.html", products=cart, total_price=total_price, error="Your credit card is expired.")
-
-        # Proceed with order creation if the card is not expired
+        # Payment form processing...
         order_id = create_order(cart, total_price, request.form['billing_address'])
-        session['cart'] = []  # Clear cart after successful order
+        session['cart'] = []
         return redirect(url_for('order_confirmation', order_id=order_id))
 
     return render_template("checkout.html", products=cart, total_price=total_price)
-
-# Function to create order in the database
 def create_order(cart, total_price, billing_address):
-    # Assuming the user ID is stored in session (adjust if needed)
-    user_id = session.get('user_id')
-    
-    # Step 1: Insert into the Orders table
-    order_date = datetime.now()
-    status = 'pending'
-
-    # Insert the order directly into the Orders table using text()
-    db.session.execute(
-        text('''
-        INSERT INTO Orders (UserID, OrderDate, TotalPrice, Status)
-        VALUES (:user_id, :order_date, :total_price, :status)
-        '''),
-        {'user_id': user_id, 'order_date': order_date, 'total_price': total_price, 'status': status}
-    )
-    db.session.commit()
-
-    # Step 2: Get the last inserted order ID (using text())
-    order_id = db.session.execute(
-        text('SELECT LAST_INSERT_ID()')
-    ).fetchone()[0]
-
-    # Step 3: Insert items into the OrderItems table
-    for item in cart:
-        product_id = item['product_id']
-        quantity = item['quantity']
-        product = Product.query.get(product_id)
-
-        db.session.execute(
-            text('''
-            INSERT INTO OrderItems (OrderID, ProductID, Quantity, Price)
-            VALUES (:order_id, :product_id, :quantity, :price)
-            '''),
-            {'order_id': order_id, 'product_id': product_id, 'quantity': quantity, 'price': product.price}
-        )
-    
-    # Commit all changes
-    db.session.commit()
-
+    # Simulate order creation
+    order_id = "ORD123"  # Replace with actual order ID logic
+    # Here, you can save the order to the database
     return order_id
 
-# Order confirmation route
 @app.route('/order_confirmation/<order_id>')
 def order_confirmation(order_id):
     return render_template("order_confirmation.html", order_id=order_id)
-  
+
+
+
 @app.route("/vendor/manage")
 def manage_products():
     vendor_id = session.get("vendor_id")
@@ -510,6 +458,7 @@ def manage_products():
         products = result.fetchall()
 
     return render_template("manage.html", products=products)
+
 
 @app.route("/vendor/delete_product/<int:product_id>", methods=["POST"])
 def delete_product(product_id):
@@ -535,18 +484,6 @@ def delete_product(product_id):
 
     return redirect(url_for("manage_products"))
 
-@app.route('/account', methods=['GET'])
-def account():
-    username = session.get('username')
-    if not username:
-        return redirect(url_for('login'))
-
-    user = conn.execute(
-        text('SELECT * FROM user WHERE Username = :username'),
-        {'username': username}
-    ).fetchone()
-
-    return render_template('vendor_dashboard.html', user=user)
 
 @app.route("/admin/manage", methods=["GET"])
 def admin_manage_products():
@@ -562,6 +499,7 @@ def admin_manage_products():
     products = conn.execute(query).fetchall()
 
     return render_template("admin.html", products=products)
+
 
 @app.route("/admin/delete_product/<int:product_id>", methods=["POST"])
 def admin_delete_product(product_id):
@@ -590,58 +528,58 @@ def admin_delete_product(product_id):
 
     return redirect(url_for("admin_manage_products"))
 
+from datetime import datetime
+
 @app.route("/admin/edit_product/<int:product_id>", methods=["GET", "POST"])
 def admin_edit_product(product_id):
     if session.get("role") != "admin":
         flash("Unauthorized access. Admins only.", "danger")
         return redirect(url_for("login"))
 
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         product = conn.execute(
             text("SELECT * FROM Products WHERE ProductID = :product_id"),
             {"product_id": product_id}
         ).fetchone()
 
-    if not product:
-        flash("Product not found.", "warning")
-        return redirect(url_for("admin_manage_products"))
+        if not product:
+            flash("Product not found.", "warning")
+            return redirect(url_for("admin_manage_products"))
 
-    if request.method == "POST":
-        title = request.form["title"]
-        description = request.form["description"]
-        discounted_price = request.form.get("discounted_price", type=float)
-        color = request.form["color"]
-        size = request.form["size"]
-        inventory_amount = request.form.get("inventory_amount", type=int)
+        if request.method == "POST":
+            try:
+                title = request.form["title"]
+                description = request.form["description"]
+                original_price = request.form.get("original_price", type=float)
+                discounted_price = request.form.get("discounted_price", type=float)
+                discount_time_str = request.form.get("discount_time")
+                discount_time = datetime.strptime(discount_time_str, "%Y-%m-%dT%H:%M") if discount_time_str else None
 
-        try:
-            with engine.begin() as conn:
                 conn.execute(text("""
                     UPDATE Products
                     SET Title = :title,
                         Description = :description,
+                        OriginalPrice = :original_price,
                         DiscountedPrice = :discounted_price,
-                        Color = :color,
-                        Size = :size,
-                        InventoryAmount = :inventory_amount
+                        DiscountTime = :discount_time
                     WHERE ProductID = :product_id
                 """), {
                     "title": title,
                     "description": description,
+                    "original_price": original_price,
                     "discounted_price": discounted_price,
-                    "color": color,
-                    "size": size,
-                    "inventory_amount": inventory_amount,
+                    "discount_time": discount_time,
                     "product_id": product_id
                 })
 
-            flash("Product updated successfully.", "success")
-            return redirect(url_for("admin_manage_products"))
+                flash("Product updated successfully.", "success")
+                return redirect(url_for("admin_manage_products"))
 
-        except Exception as e:
-            flash(f"Error updating product: {e}", "danger")
+            except Exception as e:
+                flash(f"Error updating product: {e}", "danger")
 
     return render_template("edit_product.html", product=product)
+
 @app.route("/vendor/edit_product/<int:product_id>", methods=["GET", "POST"])
 def edit_product(product_id):
     vendor_id = session.get("vendor_id")
@@ -657,27 +595,40 @@ def edit_product(product_id):
             return redirect(url_for("manage_products"))
 
         if request.method == "POST":
-            title = request.form["title"]
-            description = request.form["description"]
-            discounted_price = request.form.get("discounted_price", type=float)
+            try:
+                title = request.form["title"]
+                description = request.form["description"]
+                original_price = request.form.get("original_price", type=float)
+                discounted_price = request.form.get("discounted_price", type=float)
+                discount_time_str = request.form.get("discount_time")
+                discount_time = datetime.strptime(discount_time_str, "%Y-%m-%dT%H:%M") if discount_time_str else None
 
-            update_query = text("""
-                UPDATE Products
-                SET Title = :title, Description = :description, DiscountedPrice = :discounted_price
-                WHERE ProductID = :product_id AND VendorID = :vendor_id
-            """)
-            conn.execute(update_query, {
-                "title": title,
-                "description": description,
-                "discounted_price": discounted_price,
-                "product_id": product_id,
-                "vendor_id": vendor_id
-            })
+                conn.execute(text("""
+                    UPDATE Products
+                    SET Title = :title,
+                        Description = :description,
+                        OriginalPrice = :original_price,
+                        DiscountedPrice = :discounted_price,
+                        DiscountTime = :discount_time
+                    WHERE ProductID = :product_id AND VendorID = :vendor_id
+                """), {
+                    "title": title,
+                    "description": description,
+                    "original_price": original_price,
+                    "discounted_price": discounted_price,
+                    "discount_time": discount_time,
+                    "product_id": product_id,
+                    "vendor_id": vendor_id
+                })
 
-            flash("Product updated successfully!", "success")
-            return redirect(url_for("manage_products"))
+                flash("Product updated successfully!", "success")
+                return redirect(url_for("manage_products"))
+
+            except Exception as e:
+                flash(f"Error updating product: {e}", "danger")
 
     return render_template("edit_product.html", product=product)
+
 
 @app.route("/chat/<int:receiver_id>", methods=["GET", "POST"])
 def chat(receiver_id):
@@ -762,7 +713,7 @@ def chat_users():
                 AND Username LIKE :search_query
             """), {"current_user_id": current_user_id, "search_query": f"%{search_query}%"}).fetchall()
         else:
-            # show all the users if you cant find the user
+            # show all the users if you cant find the searched one
             users = conn.execute(text("""
                 SELECT UserID, Username 
                 FROM User 
@@ -773,6 +724,25 @@ def chat_users():
     base_template = "vendor_base.html" if session.get("role") == "vendor" else "base.html"
     
     return render_template("chat_users.html", users=users, search_query=search_query, base_template=base_template)
+
+@app.route("/account")
+def account():
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("Please log in to view your account info.", "warning")
+        return redirect(url_for("login"))
+
+    with engine.connect() as conn:
+        user = conn.execute(text("SELECT * FROM User WHERE UserID = :uid"), {"uid": user_id}).fetchone()
+
+    # Determine base template based on role
+    role = session.get("role", "customer")
+    base_template = "vendor_base.html" if role == "vendor" else "base.html"
+
+    return render_template("account.html", user=user, base_template=base_template)
+
+
+
 # Run the Flask application
 if __name__ == '__main__':
     app.run(debug=True)

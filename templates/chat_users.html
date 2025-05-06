@@ -14,7 +14,7 @@
   {% if users %}
     {% for user in users %}
       <li style="margin: 10px 0;">
-        <a href="{{ url_for('chat', receiver_id=user.UserID) }}">
+        <a style="text-decoration: none; color: #ff69b4;" href="{{ url_for('chat', receiver_id=user.UserID) }}">
           💬 {{ user.Username }}
         </a>
       </li>
