@@ -420,7 +420,14 @@ def add_to_cart(product_id):
     # Retrieve form data for color, size, and quantity
     color = request.form.get('color')
     size = request.form.get('size')
-    quantity = int(request.form.get('quantity', 1))
+    product_id = request.form['product_id']
+    quantity = int(request.form['quantity'])
+    
+    product = Product.query.get(product_id)
+    
+    if product.InventoryAmount < quantity:
+        # If not enough stock, show error or just prevent adding to cart
+        return render_template("product_detail.html", product=product, error="Not enough stock available.")
 
     # Check if the item with selected color and size already exists in the cart
     product_in_cart = next((item for item in session['cart'] if item['product_id'] == product_id and item['color'] == color and item['size'] == size), None)
@@ -505,6 +512,12 @@ def checkout():
     
     cart, total_price = enrich_cart(cart)
 
+    # Check if there is enough inventory for each item in the cart
+    for item in cart:
+        product = Product.query.get(item['product_id'])
+        if product.InventoryAmount < item['quantity']:
+            return render_template("checkout.html", products=cart, total_price=total_price, error="Not enough stock for some items.")
+
     if request.method == 'POST':
         card_exp_date = request.form['exp_date']
         card_exp_date = datetime.strptime(card_exp_date, '%Y-%m')
@@ -526,43 +539,53 @@ def checkout():
 
 # Function to create order in the database
 def create_order(cart, total_price, billing_address):
-    # Assuming the user ID is stored in session (adjust if needed)
     user_id = session.get('user_id')
     
-    # Step 1: Insert into the Orders table
     order_date = datetime.now()
     status = 'pending'
 
-    # Insert the order directly into the Orders table using text()
     db.session.execute(
         text('''
         INSERT INTO Orders (UserID, OrderDate, TotalPrice, Status)
         VALUES (:user_id, :order_date, :total_price, :status)
-        '''),
+        '''), 
         {'user_id': user_id, 'order_date': order_date, 'total_price': total_price, 'status': status}
     )
     db.session.commit()
 
-    # Step 2: Get the last inserted order ID (using text())
     order_id = db.session.execute(
         text('SELECT LAST_INSERT_ID()')
     ).fetchone()[0]
 
-    # Step 3: Insert items into the OrderItems table
     for item in cart:
         product_id = item['product_id']
         quantity = item['quantity']
         product = Product.query.get(product_id)
 
+        # Insert item into OrderItems table
         db.session.execute(
             text('''
             INSERT INTO OrderItems (OrderID, ProductID, Quantity, Price)
             VALUES (:order_id, :product_id, :quantity, :price)
-            '''),
+            '''), 
             {'order_id': order_id, 'product_id': product_id, 'quantity': quantity, 'price': product.price}
         )
-    
-    # Commit all changes
+
+        # Update inventory
+        new_inventory_amount = product.InventoryAmount - quantity
+        db.session.execute(
+            text('''
+            UPDATE Products
+            SET InventoryAmount = :new_inventory_amount,
+                StockStatus = CASE
+                    WHEN :new_inventory_amount <= 0 THEN 'Out of Stock'
+                    ELSE 'In Stock'
+                END
+            WHERE ProductID = :product_id
+            '''), 
+            {'new_inventory_amount': new_inventory_amount, 'product_id': product_id}
+        )
+
     db.session.commit()
 
     return order_id

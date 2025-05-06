@@ -25,7 +25,7 @@
             {% endif %}
           </p>
         <p class="product-warranty">Warranty: {{ product.WarrantyPeriod }}</p>
-        <p class="product-inventory">In Stock: {{ product.Inventory }}</p>
+        <p class="product-inventory">In Stock: {{ product.InventoryAmount }}</p>
 
         <form action="{{ url_for('add_to_cart', product_id=product.ProductID) }}" method="post">
 
