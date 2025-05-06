@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from sqlalchemy import create_engine, text
 from flask_sqlalchemy import SQLAlchemy
+from collections import defaultdict
 from datetime import datetime
 import hashlib
 
@@ -183,8 +184,86 @@ def vendor_dashboard():
     if session.get("role") != "vendor":
         return redirect(url_for("login"))
 
+    vendor_id = session.get("vendor_id")
     vendor_name = session.get("username")
-    return render_template("vendor_dashboard.html", vendor_name=vendor_name)
+
+    # Fetch user data
+    user_id = session.get("user_id")  # Assuming the user ID is stored in the session
+    if user_id:
+        with engine.connect() as conn:
+            user_query = text("""SELECT * FROM User WHERE UserID = :user_id""")
+            user = conn.execute(user_query, {"user_id": user_id}).fetchone()
+    else:
+        user = None
+
+    with engine.connect() as conn:
+        # Get vendor's products for display
+        product_query = text("""
+            SELECT p.*, pi.ImageURL 
+            FROM Products p
+            LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+            WHERE p.VendorID = :vendor_id
+        """)
+        products = conn.execute(product_query, {"vendor_id": vendor_id}).fetchall()
+
+        # Get vendor-related orders
+        order_query = text("""
+            SELECT o.OrderID, o.OrderDate, o.TotalPrice, o.Status,
+                   oi.Quantity, oi.Price,
+                   p.Title AS ProductTitle,
+                   u.Name AS CustomerName, u.Email AS CustomerEmail
+            FROM Orders o
+            JOIN OrderItems oi ON o.OrderID = oi.OrderID
+            JOIN Products p ON oi.ProductID = p.ProductID
+            JOIN User u ON o.UserID = u.UserID
+            WHERE p.VendorID = :vendor_id
+            ORDER BY o.OrderDate DESC
+        """)
+        orders = conn.execute(order_query, {"vendor_id": vendor_id}).fetchall()
+
+    # Group orders by OrderID
+    grouped_orders = {}
+    for order in orders:
+        grouped_orders.setdefault(order.OrderID, []).append(order)
+
+    return render_template("vendor_dashboard.html",
+                           vendor_name=vendor_name,
+                           products=products,
+                           orders=grouped_orders,
+                           user=user)
+
+@app.route("/vendor/update_order_status", methods=["POST"])
+def update_order_status():
+    if session.get("role") != "vendor":
+        return redirect(url_for("login"))
+
+    order_id = request.form.get("order_id")
+    current_status = request.form.get("current_status")
+
+    # Define status progression
+    status_flow = {
+        "pending": "confirmed",
+        "confirmed": "handed to delivery partner",
+        "handed to delivery partner": "shipped",
+        "shipped": None  # Final state
+    }
+
+    next_status = status_flow.get(current_status.lower())
+
+    if not next_status:
+        flash("This order is already shipped or has an invalid status.", "warning")
+        return redirect(url_for("vendor_dashboard"))
+
+    with engine.begin() as conn:
+        update_query = text("""
+            UPDATE Orders
+            SET Status = :next_status
+            WHERE OrderID = :order_id
+        """)
+        conn.execute(update_query, {"next_status": next_status, "order_id": order_id})
+
+    flash(f"Order {order_id} status updated to '{next_status}'.", "success")
+    return redirect(url_for("vendor_dashboard"))
 
 @app.route("/products")
 def products():
@@ -642,6 +721,7 @@ def admin_edit_product(product_id):
             flash(f"Error updating product: {e}", "danger")
 
     return render_template("edit_product.html", product=product)
+
 @app.route("/vendor/edit_product/<int:product_id>", methods=["GET", "POST"])
 def edit_product(product_id):
     vendor_id = session.get("vendor_id")
@@ -773,6 +853,7 @@ def chat_users():
     base_template = "vendor_base.html" if session.get("role") == "vendor" else "base.html"
     
     return render_template("chat_users.html", users=users, search_query=search_query, base_template=base_template)
+
 # Run the Flask application
 if __name__ == '__main__':
     app.run(debug=True)
