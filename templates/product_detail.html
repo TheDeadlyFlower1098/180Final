@@ -12,7 +12,18 @@
         <h2 class="product-title">{{ product.Title }}</h2>
         <p class="product-description">{{ product.Description }}</p>
         <p class="product-category">Category: {{ product.Category }}</p>
-        <p class="product-price">Price: ${{ '%.2f'|format(product.DiscountedPrice) }}</p>
+        <p>
+            {% if product.OriginalPrice and product.OriginalPrice > product.DiscountedPrice %}
+              <span style="text-decoration: line-through; color: gray;">
+                ${{ product.OriginalPrice }}
+              </span>
+              <span style="color: red; font-weight: bold;">
+                ${{ product.DiscountedPrice }}
+              </span>
+            {% else %}
+              <span style="font-weight: bold;">${{ product.DiscountedPrice }}</span>
+            {% endif %}
+          </p>
         <p class="product-warranty">Warranty: {{ product.WarrantyPeriod }}</p>
         <p class="product-inventory">In Stock: {{ product.Inventory }}</p>
 

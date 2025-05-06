@@ -492,7 +492,7 @@ def create_order(cart, total_price, billing_address):
 @app.route('/order_confirmation/<order_id>')
 def order_confirmation(order_id):
     return render_template("order_confirmation.html", order_id=order_id)
-
+  
 @app.route("/vendor/manage")
 def manage_products():
     vendor_id = session.get("vendor_id")
