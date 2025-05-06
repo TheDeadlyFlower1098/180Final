@@ -44,7 +44,7 @@
             <p class="product-sizes">Available Sizes: {{ product.Size }}</p>
             
             <!-- Display the amount of the product in stock -->
-            <p class="product-inventory">In Stock: {{ product.Inventory }}</p>
+            <p class="product-inventory">In Stock: {{ product.InventoryAmount }}</p>
             
             <!-- Link to the product details page where users can view more information about the product -->
             <a href="{{ url_for('product_detail', product_id=product.ProductID) }}" class="cta-button">View Details</a>
