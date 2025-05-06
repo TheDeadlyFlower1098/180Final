@@ -6,7 +6,6 @@ from collections import defaultdict
 from datetime import datetime
 import hashlib
 
-
 # Initialize Flask app
 app = Flask(__name__)
 
@@ -744,7 +743,7 @@ def admin_edit_product(product_id):
             flash(f"Error updating product: {e}", "danger")
 
     return render_template("edit_product.html", product=product)
-
+  
 @app.route("/vendor/edit_product/<int:product_id>", methods=["GET", "POST"])
 def edit_product(product_id):
     vendor_id = session.get("vendor_id")
@@ -844,7 +843,6 @@ def fetch_receiver_name(receiver_id):
     with engine.connect() as conn:
         return conn.execute(text("SELECT Username FROM User WHERE UserID = :id"), {"id": receiver_id}).scalar()
 
-
 #list all the users 
 @app.route("/chat_users", methods=["GET", "POST"])
 def chat_users():
@@ -877,6 +875,6 @@ def chat_users():
     
     return render_template("chat_users.html", users=users, search_query=search_query, base_template=base_template)
 
-# Run the Flask application
+  # Run the Flask application
 if __name__ == '__main__':
     app.run(debug=True)
