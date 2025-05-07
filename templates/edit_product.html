@@ -1,52 +1,55 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Bloom - Admin Panel</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style/base.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="../static/style/admin.css">
-</head>
-<body>
+{% extends "base.html" %}
 
-<nav>
-  <div class="logo">Bloom 🌸</div>
-  <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
-</nav>
-<h2>Edit Product</h2>
-<form method="POST">
-  <label>Title:</label>
-  <input type="text" name="title" value="{{ product.Title }}" required><br>
+{% block content %}
+<div class="form-container">
+    <h2>Edit Product</h2>
 
-  <label>Description:</label>
-  <textarea name="description">{{ product.Description }}</textarea><br>
+    <form method="POST">
+        <label for="title">Title:</label>
+        <input type="text" name="title" id="title" value="{{ product.Title or '' }}" required>
 
-  <label>Discounted Price:</label>
-  <input type="number" name="discounted_price" step="0.01" value="{{ product.DiscountedPrice }}"><br>
+        <label for="description">Description:</label>
+        <textarea name="description" id="description">{{ product.Description or '' }}</textarea>
 
-  <label>Color:</label>
-  <input type="text" name="color" value="{{ product.Color }}"><br>
+        <label for="original_price">Original Price:</label>
+        <input type="number" step="0.01" name="original_price" id="original_price"
+               value="{{ product.OriginalPrice or '' }}" required>
 
-  <label>Size:</label>
-  <input type="text" name="size" value="{{ product.Size }}"><br>
+        <label for="discounted_price">Discounted Price:</label>
+        <input type="number" step="0.01" name="discounted_price" id="discounted_price"
+               value="{{ product.DiscountedPrice or '' }}">
 
-  <label>Inventory Amount:</label>
-  <input type="number" name="inventory_amount" value="{{ product.InventoryAmount }}"><br>
+        <label for="discount_time">Discount Ends At:</label>
+        <input type="datetime-local" name="discount_time" id="discount_time"
+               value="{{ product.DiscountTime.strftime('%Y-%m-%dT%H:%M') if product.DiscountTime }}">
 
-  <button type="submit">Save Changes</button>
-</form>
+        {% if product.Color is defined %}
+        <label for="color">Color:</label>
+        <input type="text" name="color" id="color" value="{{ product.Color or '' }}">
+        {% endif %}
 
-<footer class="site-footer">
-    <div class="footer-container">
-      <p>&copy; 2025 Bloom. All rights reserved.</p>
-      <div class="footer-links">
-        <a href="#">Privacy Policy</a> |
-        <a href="#">Terms of Service</a> |
-        <a href="#">Contact Us</a>
-      </div>
-    </div>
-</footer>
+        {% if product.Size is defined %}
+        <label for="size">Size:</label>
+        <input type="text" name="size" id="size" value="{{ product.Size or '' }}">
+        {% endif %}
 
-</body>
-</html>
+        {% if product.InventoryAmount is defined %}
+        <label for="inventory_amount">Inventory Amount:</label>
+        <input type="number" name="inventory_amount" id="inventory_amount"
+               value="{{ product.InventoryAmount or 0 }}">
+        {% endif %}
+
+        <button type="submit" class="cta-button">Save Changes</button>
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <ul class="flashes">
+        {% for category, message in messages %}
+            <li class="flash {{ category }}">{{ message }}</li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+    {% endwith %}
+</div>
+{% endblock %}

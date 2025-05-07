@@ -1,99 +1,11 @@
 {% extends "vendor_base.html" %}
 
 {% block content %}
-<div class="vendor-dashboard">
-  <h1>Welcome to Bloom's Vendor Dashboard</h1>
-  <a href="{{ url_for('add_product') }}" class="btn btn-success">+ Add New Product</a>
+<div class="vendor-dashboard text-center">
+  <h1>Welcome to Bloom's vendorDashboard🌸</h1>
 
-  <h2>Account Information</h2>
-  {% if user %}
-    <ul>
-      <li><strong>Name:</strong> {{ user.Name }}</li>
-      <li><strong>Email:</strong> {{ user.Email }}</li>
-      <li><strong>Username:</strong> {{ user.Username }}</li>
-      <li><strong>Role:</strong> {{ user.Role }}</li>
-    </ul>
-  {% else %}
-    <p>User not found.</p>
-  {% endif %}
-
-  <h2>Your Products</h2>
-  {% if products %}
-    <div class="product-grid">
-      {% for product in products %}
-        <div class="product-card">
-          {% if product.ImageURL %}
-            <img src="{{ product.ImageURL }}" alt="{{ product.Title }}" class="product-img">
-          {% endif %}
-          <h3>{{ product.Title }}</h3>
-          <p><strong>Description:</strong> {{ product.Description }}</p>
-          <p><strong>Color:</strong> {{ product.Color }}</p>
-          <p><strong>Size:</strong> {{ product.Size }}</p>
-          <p><strong>Stock:</strong> {{ product.InventoryAmount }}</p>
-          <p>
-            <strong>Price:</strong>
-            {% if product.DiscountedPrice %}
-              <span class="original-price">${{ '%.2f'|format(product.OriginalPrice) }}</span>
-              <span class="discounted-price">${{ '%.2f'|format(product.DiscountedPrice) }}</span>
-            {% else %}
-              ${{ '%.2f'|format(product.OriginalPrice) }}
-            {% endif %}
-          </p>
-          <p><small>Warranty: {{ product.WarrantyPeriod }}</small></p>
-          <a href="#" class="btn btn-primary">Edit</a>
-          <a href="#" class="btn btn-danger">Delete</a>
-        </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p>You haven't added any products yet.</p>
-  {% endif %}
-
-  <h2>Your Orders</h2>
-  {% if orders %}
-    <div class="order-list">
-      {% for order_id, order_group in orders.items() %}
-        <div class="order-card">
-          <h3>Order #{{ order_id }}</h3>
-          <p><strong>Date:</strong> {{ order_group[0].OrderDate.strftime('%Y-%m-%d %H:%M') }}</p>
-          <p><strong>Customer:</strong> {{ order_group[0].CustomerName }} ({{ order_group[0].CustomerEmail }})</p>
-          <p><strong>Status:</strong> {{ order_group[0].Status }}</p>
-
-          <form action="{{ url_for('update_order_status') }}" method="post">
-            <input type="hidden" name="order_id" value="{{ order_id }}">
-            <input type="hidden" name="current_status" value="{{ order_group[0].Status }}">
-            {% if order_group[0].Status != 'shipped' %}
-              <button type="submit" class="btn btn-warning">Update Status</button>
-            {% else %}
-              <button type="button" class="btn btn-secondary" disabled>Shipped</button>
-            {% endif %}
-          </form>
-
-          <table class="order-items">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Quantity</th>
-                <th>Item Price</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in order_group %}
-                <tr>
-                  <td>{{ item.ProductTitle }}</td>
-                  <td>{{ item.Quantity }}</td>
-                  <td>${{ '%.2f'|format(item.Price) }}</td>
-                  <td>${{ '%.2f'|format(item.Price * item.Quantity) }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p>No orders for your products yet.</p>
-  {% endif %}
+  <div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+    <a href="{{ url_for('add_product') }}" class="btn btn-success">+ Add New Product</a>
+  </div>
 </div>
 {% endblock %}
