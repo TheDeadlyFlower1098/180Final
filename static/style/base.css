@@ -769,3 +769,49 @@ form button {
   color: #666;
   font-size: 0.9em;
 }
+
+
+/* Orders Table Styling */
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  margin-top: 20px;
+}
+
+.order-card {
+  background-color: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.order-card h3 {
+  font-size: 1.4em;
+  color: #ff69b4;
+  margin-bottom: 10px;
+}
+
+.order-card p {
+  margin: 4px 0;
+  color: #555;
+}
+
+.order-items {
+  width: 100%;
+  margin-top: 15px;
+  border-collapse: collapse;
+}
+
+.order-items th, .order-items td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: left;
+}
+
+.order-items th {
+  background-color: #f9f9f9;
+  font-weight: bold;
+  color: #333;
+}

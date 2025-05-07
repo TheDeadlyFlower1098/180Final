@@ -5,45 +5,41 @@
     <div class="product-detail">
 
         <img src="{{ product.ImageURL if product.ImageURL else 'https://via.placeholder.com/150' }}"
-             alt="{{ product.Title }}"
-             style="max-width: 400px; height: auto; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+            alt="{{ product.Title }}"
+            style="max-width: 400px; height: auto; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
 
         <h2 class="product-title">{{ product.Title }}</h2>
         <p class="product-description">{{ product.Description }}</p>
         <p class="product-category">Category: {{ product.Category }}</p>
-
         <p>
             {% if product.OriginalPrice and product.OriginalPrice > product.DiscountedPrice %}
-                <span class="original-price">
+                <span style="text-decoration: line-through; color: red;">
                     ${{ "%.2f"|format(product.OriginalPrice) }}
                 </span>
-                <span class="discounted-price">
+                <span style="color: green; font-weight: bold;">
                     ${{ "%.2f"|format(product.DiscountedPrice) }}
                 </span>
                 {% if product.DiscountTime %}
                     {% set time_left = product.DiscountTime - current_time %}
                     {% if time_left.total_seconds() > 0 %}
                         <br>
-                        <small class="discount-countdown">
+                        <small style="color: gray;">
                             Discount ends in: {{ time_left.days }}d {{ (time_left.seconds // 3600) % 24 }}h {{ (time_left.seconds // 60) % 60 }}m
                         </small>
                     {% else %}
                         <br>
-                        <small class="discount-countdown">Discount has ended</small>
+                        <small style="color: gray;">Discount has ended</small>
                     {% endif %}
                 {% endif %}
             {% else %}
-                <span class="discounted-price">
-                    ${{ "%.2f"|format(product.DiscountedPrice) }}
-                </span>
+                <span style="font-weight: bold;">${{ "%.2f"|format(product.DiscountedPrice) }}</span>
             {% endif %}
         </p>
 
-        <p class="product-warranty">Warranty: {{ product.WarrantyPeriod }} month(s)</p>
+        <p class="product-warranty">Warranty: {{ product.WarrantyPeriod }}</p>
         <p class="product-inventory">In Stock: {{ product.Inventory }}</p>
 
         <form action="{{ url_for('add_to_cart', product_id=product.ProductID) }}" method="post">
-
             {% if product.colors %}
                 <label for="color">Color:</label>
                 <select name="color" id="color">
@@ -75,12 +71,38 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <ul class="flashes">
-                    {% for category, message in messages %}
-                        <li class="flash {{ category }}">{{ message }}</li>
-                    {% endfor %}
+                {% for category, message in messages %}
+                    <li class="flash {{ category }}">{{ message }}</li>
+                {% endfor %}
                 </ul>
             {% endif %}
         {% endwith %}
+
+        <h3>Leave a Review</h3>
+        <form action="{{ url_for('submit_review', product_id=product.ProductID) }}" method="POST">
+            <label>Rating (1–5): <input type="number" name="rating" min="1" max="5" required></label><br>
+            <label>Comment:</label><br>
+            <textarea name="description" required></textarea><br>
+            <label>Image URL (optional): <input type="text" name="image_url"></label><br>
+            <button style="background-color: pink;" type="submit">Submit Review</button>
+        </form>
+
+        <hr>
+        <h3>Customer Reviews</h3>
+        {% if reviews %}
+            {% for review in reviews %}
+                <div class="review-block" style="margin-bottom: 20px;">
+                    <strong>{{ review.Username }}</strong> rated it {{ review.Rating }}/5<br>
+                    <p>{{ review.Description }}</p>
+                    {% if review.ImageURL %}
+                        <img src="{{ review.ImageURL }}" alt="Review Image" style="max-width: 200px;"><br>
+                    {% endif %}
+                    <small>{{ review.Date }}</small>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No reviews yet.</p>
+        {% endif %}
 
     </div>
 </div>

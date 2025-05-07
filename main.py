@@ -2,9 +2,9 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from sqlalchemy import create_engine, text
 from flask_sqlalchemy import SQLAlchemy
+from collections import defaultdict
 from datetime import datetime
 import hashlib
-
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -181,8 +181,86 @@ def vendor_dashboard():
     if session.get("role") != "vendor":
         return redirect(url_for("login"))
 
+    vendor_id = session.get("vendor_id")
     vendor_name = session.get("username")
-    return render_template("vendor_dashboard.html", vendor_name=vendor_name)
+
+    # Fetch user data
+    user_id = session.get("user_id")  # Assuming the user ID is stored in the session
+    if user_id:
+        with engine.connect() as conn:
+            user_query = text("""SELECT * FROM User WHERE UserID = :user_id""")
+            user = conn.execute(user_query, {"user_id": user_id}).fetchone()
+    else:
+        user = None
+
+    with engine.connect() as conn:
+        # Get vendor's products for display
+        product_query = text("""
+            SELECT p.*, pi.ImageURL 
+            FROM Products p
+            LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+            WHERE p.VendorID = :vendor_id
+        """)
+        products = conn.execute(product_query, {"vendor_id": vendor_id}).fetchall()
+
+        # Get vendor-related orders
+        order_query = text("""
+            SELECT o.OrderID, o.OrderDate, o.TotalPrice, o.Status,
+                   oi.Quantity, oi.Price,
+                   p.Title AS ProductTitle,
+                   u.Name AS CustomerName, u.Email AS CustomerEmail
+            FROM Orders o
+            JOIN OrderItems oi ON o.OrderID = oi.OrderID
+            JOIN Products p ON oi.ProductID = p.ProductID
+            JOIN User u ON o.UserID = u.UserID
+            WHERE p.VendorID = :vendor_id
+            ORDER BY o.OrderDate DESC
+        """)
+        orders = conn.execute(order_query, {"vendor_id": vendor_id}).fetchall()
+
+    # Group orders by OrderID
+    grouped_orders = {}
+    for order in orders:
+        grouped_orders.setdefault(order.OrderID, []).append(order)
+
+    return render_template("vendor_dashboard.html",
+                           vendor_name=vendor_name,
+                           products=products,
+                           orders=grouped_orders,
+                           user=user)
+
+@app.route("/vendor/update_order_status", methods=["POST"])
+def update_order_status():
+    if session.get("role") != "vendor":
+        return redirect(url_for("login"))
+
+    order_id = request.form.get("order_id")
+    current_status = request.form.get("current_status")
+
+    # Define status progression
+    status_flow = {
+        "pending": "confirmed",
+        "confirmed": "handed to delivery partner",
+        "handed to delivery partner": "shipped",
+        "shipped": None  # Final state
+    }
+
+    next_status = status_flow.get(current_status.lower())
+
+    if not next_status:
+        flash("This order is already shipped or has an invalid status.", "warning")
+        return redirect(url_for("vendor_dashboard"))
+
+    with engine.begin() as conn:
+        update_query = text("""
+            UPDATE Orders
+            SET Status = :next_status
+            WHERE OrderID = :order_id
+        """)
+        conn.execute(update_query, {"next_status": next_status, "order_id": order_id})
+
+    flash(f"Order {order_id} status updated to '{next_status}'.", "success")
+    return redirect(url_for("vendor_dashboard"))
 
 
 
@@ -228,6 +306,14 @@ def product_detail(product_id):
         LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
         WHERE p.ProductID = :product_id
     """)
+    reviews = conn.execute(text("""
+    SELECT r.Rating, r.Description, r.ImageURL, r.Date, u.Username
+    FROM review r
+    JOIN user u ON r.CustomerID = u.UserID
+    WHERE r.ProductID = :product_id
+    ORDER BY r.Date DESC
+"""), {"product_id": product_id}).mappings().all()
+    
     result = conn.execute(query, {"product_id": product_id}).fetchone()
     if not result:
         return "<h3>Product not found.</h3>"
@@ -236,7 +322,8 @@ def product_detail(product_id):
     product["colors"] = product["Color"].split() if product["Color"] else []
     product["sizes"] = product["Size"].split() if product["Size"] else []
     product["categories"] = product["Category"].split() if product["Category"] else []
-    return render_template("product_detail.html", product=product, current_time=datetime.utcnow())
+    return render_template("product_detail.html", product=product, current_time=datetime.utcnow(), reviews=reviews)
+
 
 # Cart item model for SQLAlchemy (manages cart items in the database)
 class CartItem(db.Model):
@@ -441,7 +528,7 @@ def order_confirmation(order_id):
 
 
 
-@app.route("/vendor/manage")
+@app.route("/vendor/manage") #vendor delete or edit product
 def manage_products():
     vendor_id = session.get("vendor_id")
     if not vendor_id:
@@ -460,7 +547,7 @@ def manage_products():
     return render_template("manage.html", products=products)
 
 
-@app.route("/vendor/delete_product/<int:product_id>", methods=["POST"])
+@app.route("/vendor/delete_product/<int:product_id>", methods=["POST"]) #for vendor to delete product route
 def delete_product(product_id):
     vendor_id = session.get("vendor_id")
     if not vendor_id:
@@ -487,7 +574,7 @@ def delete_product(product_id):
 
 @app.route("/admin/manage", methods=["GET"])
 def admin_manage_products():
-    if session.get("role") != "admin":
+    if session.get("role") != "admin": #log out user who role is not admin
         flash("Unauthorized access. Admins only.", "danger")
         return redirect(url_for("login"))
 
@@ -580,6 +667,7 @@ def admin_edit_product(product_id):
 
     return render_template("edit_product.html", product=product)
 
+  
 @app.route("/vendor/edit_product/<int:product_id>", methods=["GET", "POST"])
 def edit_product(product_id):
     vendor_id = session.get("vendor_id")
@@ -692,7 +780,6 @@ def fetch_receiver_name(receiver_id):
     with engine.connect() as conn:
         return conn.execute(text("SELECT Username FROM User WHERE UserID = :id"), {"id": receiver_id}).scalar()
 
-
 #list all the users 
 @app.route("/chat_users", methods=["GET", "POST"])
 def chat_users():
@@ -741,7 +828,48 @@ def account():
 
     return render_template("account.html", user=user, base_template=base_template)
 
+@app.route('/product/<int:product_id>/review', methods=['POST'])
+def submit_review(product_id):
+    if 'user_id' not in session:
+        flash("You must be logged in to leave a review.", "warning")
+        return redirect(url_for('login'))
 
+    customer_id = session['user_id']
+    rating = int(request.form.get('rating'))
+    description = request.form.get('description')
+    image_url = request.form.get('image_url')  # optional
+
+    # Check if the user has purchased the product
+    with engine.connect() as conn:
+        purchase_check = conn.execute(text("""
+            SELECT 1 FROM ordercart o
+            JOIN orderitems oi ON o.OrderID = oi.OrderID
+            WHERE o.CustomerID = :customer_id AND oi.ProductID = :product_id
+            LIMIT 1
+        """), {
+            "customer_id": customer_id,
+            "product_id": product_id
+        }).fetchone()
+
+        if not purchase_check:
+            flash("You can only review products you've purchased.", "danger")
+            return redirect(url_for('product_detail', product_id=product_id))
+
+    # Insert the review
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO review (CustomerID, ProductID, Rating, Description, ImageURL, Date)
+            VALUES (:customer_id, :product_id, :rating, :description, :image_url, CURRENT_DATE())
+        """), {
+            "customer_id": customer_id,
+            "product_id": product_id,
+            "rating": rating,
+            "description": description,
+            "image_url": image_url or None
+        })
+
+    flash("Your review has been submitted!", "success")
+    return redirect(url_for('product_detail', product_id=product_id))
 
 # Run the Flask application
 if __name__ == '__main__':
