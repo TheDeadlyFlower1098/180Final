@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>{% block title %}Bloom - Admin Panel{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/base.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style/admin.css') }}">
+</head>
+<body>
+
+<nav>
+    <div class="logo">Bloom 🌸</div>
+    <div class="nav-links">
+        <a href="{{ url_for('admin_manage_products') }}" class="admin-dashboard-link">Dashboard</a>
+        <a href="{{ url_for('admin_review_complaints') }}" class="btn-review-complaints">Review Complaints</a>
+        <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    {% block content %}{% endblock %}
+</div>
+
+<footer class="site-footer">
+    <div class="footer-container">
+      <p>&copy; 2025 Bloom. All rights reserved.</p>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a> |
+        <a href="#">Terms of Service</a> |
+        <a href="#">Contact Us</a>
+      </div>
+    </div>
+</footer>
+
+</body>
+</html>
