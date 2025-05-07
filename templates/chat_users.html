@@ -1,27 +1,33 @@
 {% extends base_template %}
 
 {% block content %}
-<h2>Select a user to chat with</h2>
+<div class="page-section">
+  <h2>Select a user to chat with</h2>
 
-<!-- Search form -->
-<form method="POST" action="{{ url_for('chat_users') }}" style="margin-bottom: 20px;">
-  <input type="text" name="search_query" placeholder="Search for users..." value="{{ search_query }}" style="width: 100%; padding: 10px;">
-  <button class="cta-button" type="submit" style="margin-top: 10px;">Search</button>
-</form>
+  <!-- Search form -->
+  <form method="POST" action="{{ url_for('chat_users') }}" class="form-group">
+    <input 
+      type="text" 
+      name="search_query" 
+      class="form-input full-width" 
+      placeholder="Search for users..." 
+      value="{{ search_query }}">
+    <button class="cta-button" type="submit">Search</button>
+  </form>
 
-<!-- User list -->
-<ul style="list-style-type: none; padding: 0;">
-  {% if users %}
-    {% for user in users %}
-      <li style="margin: 10px 0;">
-        <a href="{{ url_for('chat', receiver_id=user.UserID) }}">
-          💬 {{ user.Username }}
-        </a>
-      </li>
-    {% endfor %}
-  {% else %}
-    <li>No users found.</li>
-  {% endif %}
-</ul>
-
+  <!-- User list -->
+  <ul class="user-list">
+    {% if users %}
+      {% for user in users %}
+        <li class="list-item">
+          <a class="chat-user-link" href="{{ url_for('chat', receiver_id=user.UserID) }}">
+            💬 {{ user.Username }}
+          </a>
+        </li>
+      {% endfor %}
+    {% else %}
+      <li class="list-item">No users found.</li>
+    {% endif %}
+  </ul>
+</div>
 {% endblock %}

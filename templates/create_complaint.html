@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="complaint-creation-section">
+  <h1>Create a Complaint</h1>
+
+  <div class="complaint-form">
+    <form action="{{ url_for('create_complaint') }}" method="POST">
+      <div class="form-group">
+        <label for="complaintTitle">Complaint Title:</label>
+        <input type="text" id="complaintTitle" name="title" placeholder="Enter complaint title" required />
+      </div>
+    
+      <div class="form-group">
+        <label for="complaintDescription">Complaint Description:</label>
+        <textarea id="complaintDescription" name="description" rows="4" placeholder="Describe the issue" required></textarea>
+      </div>
+    
+      <div class="form-group">
+        <label for="productSelect">Product to Complain About:</label>
+        <select id="productSelect" name="product_id" required>
+          {% for product in ordered_products %}
+            <option value="{{ product.ProductID }}">{{ product.Title }} (Ordered on {{ product.OrderDate.strftime('%Y-%m-%d') }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    
+      <div class="form-group">
+        <label for="complaintDemand">Demand:</label>
+        <select id="complaintDemand" name="demand" required>
+          <option value="return">Return</option>
+          <option value="refund">Refund</option>
+          <option value="warranty">Warranty</option>
+        </select>
+      </div>
+    
+      <button type="submit" class="submit-button">Submit Complaint</button>
+    </form>
+    
+  </div>
+</div>
+{% endblock %}
