@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from sqlalchemy import create_engine, text
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import login_required
 from collections import defaultdict
 from datetime import datetime
 import hashlib
@@ -327,22 +328,36 @@ def product_detail(product_id):
     return render_template("product_detail.html", product=product, current_time=datetime.utcnow(), reviews=reviews)
 
 
+
 # Cart item model for SQLAlchemy (manages cart items in the database)
 class CartItem(db.Model):
+    __tablename__ = 'CartItems'
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-    quantity = db.Column(db.Integer, default=1)
+    quantity = db.Column(db.Integer, nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('Products.ProductID'), nullable=False)
     product = db.relationship('Product', back_populates='cart_items')
 
 # Product model for SQLAlchemy (manages product information in the database)
 class Product(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    price = db.Column(db.Float, nullable=False)
+    __tablename__ = 'Products'  # This explicitly defines the table name
+    ProductID = db.Column(db.Integer, primary_key=True)  # Adjust to match your schema
+    Title = db.Column(db.String(200), nullable=False)
+    Description = db.Column(db.Text, nullable=True)
+    WarrantyPeriod = db.Column(db.Integer, nullable=True)
+    InventoryAmount = db.Column(db.Integer, nullable=False)
+    OriginalPrice = db.Column(db.Numeric(10, 2), nullable=False)
+    DiscountedPrice = db.Column(db.Numeric(10, 2), nullable=True)
+    DiscountTime = db.Column(db.DateTime, nullable=True)
+    Color = db.Column(db.String(255), nullable=True)
+    Size = db.Column(db.String(255), nullable=True)
+    VendorID = db.Column(db.Integer, db.ForeignKey('Vendor.VendorID'), nullable=False)
+    AdminID = db.Column(db.Integer, db.ForeignKey('Admin.AdminID'), nullable=False)
+    Category = db.Column(db.String(255), nullable=True)
     cart_items = db.relationship('CartItem', back_populates='product')
-
-
-from datetime import datetime
+    
+    @property
+    def price(self):
+        return self.DiscountedPrice or self.OriginalPrice
 
 @app.route("/vendor/add_product", methods=["GET", "POST"])
 def add_product():
@@ -523,13 +538,51 @@ def checkout():
         if product.InventoryAmount < item['quantity']:
             return render_template("checkout.html", products=cart, total_price=total_price, error="Not enough stock for some items.")
 
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to proceed to checkout.", "warning")
+        return redirect(url_for('login'))
+
+    # Query the user's addresses
+    addresses = db.session.execute(
+        text("SELECT * FROM Address WHERE UserID = :user_id"),
+        {"user_id": user_id}
+    ).fetchall()
+
+    # Get the default address (if any)
+    default_address = next((addr for addr in addresses if addr.IsDefault), None)
+
     if request.method == 'POST':
         # Payment form processing...
-        order_id = create_order(cart, total_price, request.form['billing_address'])
+        billing_address = request.form['address_id']  # Get selected address
+        if billing_address == 'new':
+            # New address logic if user enters a new address
+            new_address = {
+                'address_line': request.form['new_address_line'],
+                'city': request.form['new_city'],
+                'state': request.form['new_state'],
+                'zipcode': request.form['new_zipcode'],
+                'country': request.form['new_country'],
+                'user_id': user_id
+            }
+            db.session.execute(
+                text("""
+                    INSERT INTO Address (AddressLine, City, State, ZipCode, Country, UserID)
+                    VALUES (:address_line, :city, :state, :zipcode, :country, :user_id)
+                """), new_address)
+            db.session.commit()
+            # Set this address as the billing address
+            billing_address = db.session.execute(
+                text("SELECT AddressID FROM Address WHERE UserID = :user_id ORDER BY AddressID DESC LIMIT 1"),
+                {"user_id": user_id}
+            ).fetchone().AddressID
+
+        order_id = create_order(cart, total_price, billing_address)
         session['cart'] = []
         return redirect(url_for('order_confirmation', order_id=order_id))
 
-    return render_template("checkout.html", products=cart, total_price=total_price)
+    return render_template("checkout.html", products=cart, total_price=total_price, addresses=addresses, default_address=default_address)
+
 def create_order(cart, total_price, billing_address):
     user_id = session.get('user_id')
     
@@ -675,8 +728,6 @@ def admin_delete_product(product_id):
             flash(f"Error deleting product: {e}", "danger")
 
     return redirect(url_for("admin_manage_products"))
-
-from datetime import datetime
 
 @app.route("/admin/edit_product/<int:product_id>", methods=["GET", "POST"])
 def admin_edit_product(product_id):
@@ -881,12 +932,181 @@ def account():
 
     with engine.connect() as conn:
         user = conn.execute(text("SELECT * FROM User WHERE UserID = :uid"), {"uid": user_id}).fetchone()
+        addresses = conn.execute(text("SELECT * FROM Address WHERE UserID = :uid"), {"uid": user_id}).fetchall()
 
     # Determine base template based on role
     role = session.get("role", "customer")
     base_template = "vendor_base.html" if role == "vendor" else "base.html"
 
-    return render_template("account.html", user=user, base_template=base_template)
+    return render_template("account.html", user=user, addresses=addresses, base_template=base_template)
+
+
+@app.route("/add_address", methods=["GET", "POST"])
+def add_address():
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        street = request.form.get("street")
+        city = request.form.get("city")
+        state = request.form.get("state")
+        zip_code = request.form.get("zip_code")
+        country = request.form.get("country")
+        is_default = request.form.get("is_default") == "on"
+
+        if not all([street, city, state, zip_code, country]):
+            error = "All fields are required."
+            return render_template("add_address.html", error=error)
+
+        if is_default:
+            # Unset any existing default address
+            db.session.execute(
+                text("UPDATE Address SET IsDefault = FALSE WHERE UserID = :user_id"),
+                {"user_id": user_id}
+            )
+
+        # Insert the new address
+        db.session.execute(
+            text("""
+                INSERT INTO Address (UserID, AddressLine, City, State, ZipCode, Country, IsDefault)
+                VALUES (:user_id, :address_line, :city, :state, :zip_code, :country, :is_default)
+            """),
+            {
+                "user_id": user_id,
+                "address_line": street,
+                "city": city,
+                "state": state,
+                "zip_code": zip_code,
+                "country": country,
+                "is_default": is_default
+            }
+        )
+
+        db.session.commit()
+        return redirect(url_for("account"))  # Or another route
+
+    return render_template("add_address.html")
+
+@app.route('/set_default_address/<int:address_id>', methods=['POST'])
+def set_default_address(address_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to set a default address.", "warning")
+        return redirect(url_for('login'))
+
+    # First, unset all addresses' default status for the user
+    db.session.execute(
+        text("UPDATE Address SET IsDefault = FALSE WHERE UserID = :user_id"),
+        {"user_id": user_id}
+    )
+
+    # Then, set the selected address as the default
+    db.session.execute(
+        text("UPDATE Address SET IsDefault = TRUE WHERE AddressID = :address_id AND UserID = :user_id"),
+        {"address_id": address_id, "user_id": user_id}
+    )
+
+    db.session.commit()
+
+    flash("Default address updated successfully.", "success")
+    return redirect(url_for('account'))
+
+@app.route('/edit_address/<int:address_id>', methods=['GET', 'POST'])
+def edit_address(address_id):
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("Please log in to edit addresses.", "warning")
+        return redirect(url_for("login"))
+
+    with engine.connect() as conn:
+        address = conn.execute(
+            text("SELECT * FROM Address WHERE AddressID = :aid AND UserID = :uid"),
+            {"aid": address_id, "uid": user_id}
+        ).fetchone()
+
+    if not address:
+        flash("Address not found or access denied.", "danger")
+        return redirect(url_for("account"))
+
+    if request.method == "POST":
+        street = request.form.get("street")
+        city = request.form.get("city")
+        state = request.form.get("state")
+        zip_code = request.form.get("zip_code")
+        country = request.form.get("country")
+        is_default = request.form.get("is_default") == "on"
+
+        if is_default:
+            db.session.execute(
+                text("UPDATE Address SET IsDefault = FALSE WHERE UserID = :uid"),
+                {"uid": user_id}
+            )
+
+        db.session.execute(
+            text("""
+                UPDATE Address
+                SET AddressLine = :street, City = :city, State = :state,
+                    ZipCode = :zip_code, Country = :country, IsDefault = :is_default
+                WHERE AddressID = :aid AND UserID = :uid
+            """),
+            {
+                "street": street, "city": city, "state": state,
+                "zip_code": zip_code, "country": country,
+                "is_default": is_default, "aid": address_id, "uid": user_id
+            }
+        )
+        db.session.commit()
+        flash("Address updated.", "success")
+        return redirect(url_for("account"))
+
+    return render_template("edit_address.html", address=address)
+
+@app.route('/delete_address/<int:address_id>', methods=['POST'])
+def delete_address(address_id):
+    # Ensure the logic to delete the address is implemented here
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to delete an address.", "warning")
+        return redirect(url_for('login'))
+
+    # Check if the address belongs to the logged-in user
+    address = db.session.execute(
+        text("SELECT * FROM Address WHERE AddressID = :address_id AND UserID = :user_id"),
+        {"address_id": address_id, "user_id": user_id}
+    ).fetchone()
+
+    if not address:
+        flash("Address not found or you do not have permission to delete it.", "danger")
+        return redirect(url_for('account'))
+
+    # Check if the address being deleted is the default
+    if address.IsDefault:
+        # If the default address is being deleted, set another address as the default
+        new_default_address = db.session.execute(
+            text("SELECT AddressID FROM Address WHERE UserID = :user_id AND IsDefault = FALSE LIMIT 1"),
+            {"user_id": user_id}
+        ).fetchone()
+
+        if new_default_address:
+            db.session.execute(
+                text("UPDATE Address SET IsDefault = TRUE WHERE AddressID = :address_id"),
+                {"address_id": new_default_address.AddressID}
+            )
+        else:
+            flash("Cannot delete the default address. Please set another address as default first.", "danger")
+            return redirect(url_for('account'))
+
+    # Proceed to delete the address
+    db.session.execute(
+        text("DELETE FROM Address WHERE AddressID = :address_id AND UserID = :user_id"),
+        {"address_id": address_id, "user_id": user_id}
+    )
+    db.session.commit()
+
+    flash("Address deleted successfully.", "success")
+    return redirect(url_for('account'))
+
 
 @app.route('/product/<int:product_id>/review', methods=['POST'])
 def submit_review(product_id):

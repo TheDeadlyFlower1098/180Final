@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="add-address-page">
+    <h2>Add Address</h2>
+    {% if error %}<p style="color: red;">{{ error }}</p>{% endif %}
+    <form method="POST">
+        <label>Street:</label><input type="text" name="street" required><br>
+        <label>City:</label><input type="text" name="city" required><br>
+        <label>State:</label><input type="text" name="state" required><br>
+        <label>Zip Code:</label><input type="text" name="zip_code" required><br>
+        <label>Country:</label><input type="text" name="country" required><br>
+        <label><input type="checkbox" name="is_default"> Set as default</label><br><br>
+        <button type="submit">Save Address</button>
+    </form>
+</div>
+{% endblock %}
