@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from sqlalchemy import create_engine, text
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import login_required
 from collections import defaultdict
 from datetime import datetime
 import hashlib
@@ -17,19 +18,20 @@ app.secret_key = "idkwhattoput"  # Secret key for session management
 app.config['SQLALCHEMY_DATABASE_URI'] = con_str  # Set the SQLAlchemy URI
 db = SQLAlchemy(app)  # Initialize SQLAlchemy with Flask
 
-# Home route that displays the latest 5 products
 @app.route("/")
 def home():
-    # SQL query to select top 5 products with their image URLs
+    username = session.get("username")
+
     query = text("""
         SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
         FROM Products p
         LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
         LIMIT 5
     """)
-    result = conn.execute(query)  # Execute the query
-    products = result.fetchall()  # Fetch all results
-    return render_template("home.html", products=products)  # Render the home page with products
+    result = conn.execute(query)
+    products = result.fetchall()
+
+    return render_template("home.html", username=username, products=products)
 
 # Alternative home route with session-based username management
 @app.route("/home")
@@ -150,7 +152,7 @@ def login():
                 if result:
                     result = dict(result._mapping)  # Convert result to dictionary for key access
 
-                    session["user_id"] = result["UserID"]  # FIXED: now chat works!
+                    session["user_id"] = result["UserID"] 
                     session["username"] = result["Username"]
                     session["role"] = result["Role"]
                     session["vendor_id"] = result["UserID"] if result["Role"] == "vendor" else None
@@ -261,8 +263,6 @@ def update_order_status():
 
     flash(f"Order {order_id} status updated to '{next_status}'.", "success")
     return redirect(url_for("vendor_dashboard"))
-
-
 
 @app.route("/products")
 def products():
@@ -509,25 +509,39 @@ def update_cart():
 
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
+    user_id = session.get('user_id')
     cart = session.get('cart', [])
     if not cart:
         return redirect(url_for('cart'))
-    
-    cart, total_price = enrich_cart(cart)  # Reuse logic
 
-    # Check if there is enough inventory for each item in the cart
-    for item in cart:
-        product = Product.query.get(item['product_id'])
-        if product.InventoryAmount < item['quantity']:
-            return render_template("checkout.html", products=cart, total_price=total_price, error="Not enough stock for some items.")
+    cart, total_price = enrich_cart(cart)
+
+    with engine.connect() as conn:
+        addresses = conn.execute(text("SELECT * FROM Address WHERE UserID = :uid"), {"uid": user_id}).fetchall()
+        default_address = next((a for a in addresses if a.IsDefault), None)
 
     if request.method == 'POST':
-        # Payment form processing...
-        order_id = create_order(cart, total_price, request.form['billing_address'])
+        selected_address_id = request.form.get("address_id")
+        new_address = request.form.get("new_address")
+
+        billing_address = None
+        if selected_address_id == "new" and new_address:
+            billing_address = new_address
+        else:
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT AddressLine FROM Address WHERE AddressID = :aid"), {"aid": selected_address_id}).fetchone()
+                billing_address = result[0] if result else None
+
+        if not billing_address:
+            flash("Please provide a valid address.", "danger")
+            return redirect(url_for("checkout"))
+
+        order_id = create_order(cart, total_price, billing_address)
         session['cart'] = []
         return redirect(url_for('order_confirmation', order_id=order_id))
 
-    return render_template("checkout.html", products=cart, total_price=total_price)
+    return render_template("checkout.html", products=cart, total_price=total_price, addresses=addresses, default_address=default_address)
+
 def create_order(cart, total_price, billing_address):
     user_id = session.get('user_id')
     
@@ -590,8 +604,6 @@ def create_order(cart, total_price, billing_address):
 def order_confirmation(order_id):
     return render_template("order_confirmation.html", order_id=order_id)
 
-
-
 @app.route("/vendor/manage") #vendor delete or edit product
 def manage_products():
     vendor_id = session.get("vendor_id")
@@ -609,7 +621,6 @@ def manage_products():
         products = result.fetchall()
 
     return render_template("manage.html", products=products)
-
 
 @app.route("/vendor/delete_product/<int:product_id>", methods=["POST"]) #for vendor to delete product route
 def delete_product(product_id):
@@ -635,7 +646,6 @@ def delete_product(product_id):
 
     return redirect(url_for("manage_products"))
 
-
 @app.route("/admin/manage", methods=["GET"])
 def admin_manage_products():
     if session.get("role") != "admin": #log out user who role is not admin
@@ -650,7 +660,6 @@ def admin_manage_products():
     products = conn.execute(query).fetchall()
 
     return render_template("admin.html", products=products)
-
 
 @app.route("/admin/delete_product/<int:product_id>", methods=["POST"])
 def admin_delete_product(product_id):
@@ -781,7 +790,6 @@ def edit_product(product_id):
 
     return render_template("edit_product.html", product=product)
 
-
 @app.route("/chat/<int:receiver_id>", methods=["GET", "POST"])
 def chat(receiver_id):
     sender_id = session.get("user_id") #get the id of user thats logged in
@@ -875,9 +883,7 @@ def chat_users():
     base_template = "vendor_base.html" if session.get("role") == "vendor" else "base.html"
     
     return render_template("chat_users.html", users=users, search_query=search_query, base_template=base_template)
-
-
-@app.route("/account")
+@app.route("/account", methods=["GET", "POST"])
 def account():
     user_id = session.get("user_id")
     if not user_id:
@@ -886,12 +892,46 @@ def account():
 
     with engine.connect() as conn:
         user = conn.execute(text("SELECT * FROM User WHERE UserID = :uid"), {"uid": user_id}).fetchone()
+        addresses = conn.execute(text("SELECT * FROM Address WHERE UserID = :uid"), {"uid": user_id}).fetchall()
 
-    # Determine base template based on role
-    role = session.get("role", "customer")
-    base_template = "vendor_base.html" if role == "vendor" else "base.html"
+    base_template = "vendor_base.html" if session.get("role", "customer") == "vendor" else "base.html"
+    return render_template("account.html", user=user, addresses=addresses, base_template=base_template)
 
-    return render_template("account.html", user=user, base_template=base_template)
+@app.route("/add_address", methods=["GET", "POST"])
+@login_required  # Optional: if you use login-based access
+def add_address():
+    if request.method == "POST":
+        street = request.form.get("street")
+        city = request.form.get("city")
+        state = request.form.get("state")
+        zip_code = request.form.get("zip_code")
+        country = request.form.get("country")
+        is_default = request.form.get("is_default") == "on"
+        user_id = session.get("user_id")  # Adjust if you use a different session key
+
+        if not all([street, city, state, zip_code, country]):
+            error = "All fields are required."
+            return render_template("add_address.html", error=error)
+
+        # If is_default is true, unset existing default
+        if is_default:
+            Address.query.filter_by(user_id=user_id, is_default=True).update({"is_default": False})
+        
+        new_address = Address(
+            user_id=user_id,
+            street=street,
+            city=city,
+            state=state,
+            zip_code=zip_code,
+            country=country,
+            is_default=is_default
+        )
+        db.session.add(new_address)
+        db.session.commit()
+
+        return redirect(url_for("account"))  # Or another route
+
+    return render_template("add_address.html")
 
 @app.route('/product/<int:product_id>/review', methods=['POST'])
 def submit_review(product_id):
@@ -907,14 +947,16 @@ def submit_review(product_id):
     # Check if the user has purchased the product
     with engine.connect() as conn:
         purchase_check = conn.execute(text("""
-            SELECT 1 FROM ordercart o
-            JOIN orderitems oi ON o.OrderID = oi.OrderID
+            SELECT 1 
+            FROM `Orders` o
+            JOIN `Orderitems` oi ON o.OrderID = oi.OrderID
             WHERE o.CustomerID = :customer_id AND oi.ProductID = :product_id
             LIMIT 1
         """), {
             "customer_id": customer_id,
             "product_id": product_id
         }).fetchone()
+
 
         if not purchase_check:
             flash("You can only review products you've purchased.", "danger")

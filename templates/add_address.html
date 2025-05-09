@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 50px auto;">
+    <h2>Add New Address</h2>
+    {% if error %}
+    <p style="color:red;">{{ error }}</p>
+    {% endif %}
+    <form method="POST">
+        <label>Street:</label><br>
+        <input type="text" name="street" required><br><br>
+
+        <label>City:</label><br>
+        <input type="text" name="city" required><br><br>
+
+        <label>State:</label><br>
+        <input type="text" name="state" required><br><br>
+
+        <label>Zip Code:</label><br>
+        <input type="text" name="zip_code" required><br><br>
+
+        <label>Country:</label><br>
+        <input type="text" name="country" required><br><br>
+
+        <label>
+            <input type="checkbox" name="is_default">
+            Set as default address
+        </label><br><br>
+
+        <button type="submit">Save Address</button>
+    </form>
+</div>
+{% endblock %}
