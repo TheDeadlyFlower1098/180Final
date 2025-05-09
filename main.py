@@ -541,7 +541,10 @@ def checkout():
 
     return render_template("checkout.html", products=cart, total_price=total_price)
 def create_order(cart, total_price, billing_address):
+<<<<<<< HEAD
     # Assuming the user ID is stored in session (adjust if needed)
+=======
+>>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
     user_id = session.get('user_id')
     
     # Step 1: Insert into the Orders table
@@ -872,6 +875,10 @@ def chat_users():
     
     return render_template("chat_users.html", users=users, search_query=search_query, base_template=base_template)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
 @app.route("/account")
 def account():
     user_id = session.get("user_id")
@@ -1107,6 +1114,11 @@ def customer_complaints():
     
     return render_template("customer_complaints.html", complaints=complaints)
 
+<<<<<<< HEAD
 # Run the Flask application
+=======
+  # Run the Flask application
+
+>>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
 if __name__ == '__main__':
     app.run(debug=True)
