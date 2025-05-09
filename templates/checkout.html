@@ -31,7 +31,33 @@
             <label for="cvv">CVV:</label>
             <input type="text" id="cvv" name="cvv" required>
 
-            <label for="billing_address">Billing Address:</label>
+            <h4 style="margin-bottom: 20px; color: #333;">Select Billing Address:</h4>
+
+            {% if addresses %}
+                {% for address in addresses %}
+                    <label style="display: block; margin-bottom: 10px;">
+                        <input type="radio" name="address_id" value="{{ address.AddressID }}" {% if default_address and address.AddressID == default_address.AddressID %}checked{% endif %}>
+                        {{ address.AddressLine }}, {{ address.City }}, {{ address.State }}, {{ address.ZipCode }}, {{ address.Country }}
+                        {% if address.IsDefault %}
+                            <strong>(Default)</strong>
+                        {% endif %}
+                    </label>
+                {% endfor %}
+            {% endif %}
+
+            <label style="display: block; margin-top: 20px;">
+                <input type="radio" name="address_id" value="new">
+                Enter a new address:
+            </label>
+
+            <div id="new-address-fields" style="margin-top: 10px;">
+                <input type="text" name="new_address_line" placeholder="Address Line"><br>
+                <input type="text" name="new_city" placeholder="City"><br>
+                <input type="text" name="new_state" placeholder="State"><br>
+                <input type="text" name="new_zipcode" placeholder="Zip Code"><br>
+                <input type="text" name="new_country" placeholder="Country"><br>
+            </div>
+
             <input type="text" id="billing_address" name="billing_address" required>
 
             <button type="submit">Place Order</button>
@@ -41,4 +67,22 @@
     <p style="text-align: center; color: #555; font-size: 1.2rem;">Your cart is empty!</p>
     {% endif %}
 </div>
+
+<script>
+    const radios = document.querySelectorAll('input[name="address_id"]');
+    const newAddressFields = document.getElementById('new-address-fields');
+
+    function toggleNewAddress() {
+        const selected = Array.from(radios).find(r => r.checked);
+        if (selected && selected.value === "new") {
+            newAddressFields.style.display = "block";
+        } else {
+            newAddressFields.style.display = "none";
+        }
+    }
+
+    radios.forEach(r => r.addEventListener('change', toggleNewAddress));
+    window.onload = toggleNewAddress;
+</script>
+
 {% endblock %}

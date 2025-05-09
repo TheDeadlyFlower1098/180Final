@@ -7,5 +7,25 @@
   <p><strong>Username:</strong> {{ user.Username }}</p>
   <p><strong>Email:</strong> {{ user.Email }}</p>
   <p><strong>Role:</strong> {{ user.Role }}</p>
+  <h3>Billing Addresses</h3>
+<ul>
+  {% for address in addresses %}
+    <li>
+      {{ address.AddressLine }}, {{ address.City }}, {{ address.State }}, {{ address.ZipCode }}, {{ address.Country }}
+      {% if address.IsDefault %}
+        <strong>(Default)</strong>
+      {% else %}
+        <form method="POST" action="{{ url_for('set_default_address', address_id=address.AddressID) }}">
+          <button type="submit">Set as Default</button>
+        </form>
+      {% endif %}
+      <a href="{{ url_for('edit_address', address_id=address.AddressID) }}">Edit</a>
+      <a href="{{ url_for('delete_address', address_id=address.AddressID) }}">Delete</a>
+    </li>
+  {% endfor %}
+</ul>
+
+<a href="{{ url_for('add_address') }}">Add New Address</a>
+
 </div>
 {% endblock %}

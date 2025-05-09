@@ -17,19 +17,20 @@ app.secret_key = "idkwhattoput"  # Secret key for session management
 app.config['SQLALCHEMY_DATABASE_URI'] = con_str  # Set the SQLAlchemy URI
 db = SQLAlchemy(app)  # Initialize SQLAlchemy with Flask
 
-# Home route that displays the latest 5 products
 @app.route("/")
 def home():
-    # SQL query to select top 5 products with their image URLs
+    username = session.get("username")
+
     query = text("""
         SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
         FROM Products p
         LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
         LIMIT 5
     """)
-    result = conn.execute(query)  # Execute the query
-    products = result.fetchall()  # Fetch all results
-    return render_template("home.html", products=products)  # Render the home page with products
+    result = conn.execute(query)
+    products = result.fetchall()
+
+    return render_template("home.html", username=username, products=products)
 
 # Alternative home route with session-based username management
 @app.route("/home")
@@ -150,7 +151,7 @@ def login():
                 if result:
                     result = dict(result._mapping)  # Convert result to dictionary for key access
 
-                    session["user_id"] = result["UserID"]  # FIXED: now chat works!
+                    session["user_id"] = result["UserID"] 
                     session["username"] = result["Username"]
                     session["role"] = result["Role"]
                     session["vendor_id"] = result["UserID"] if result["Role"] == "vendor" else None
@@ -262,8 +263,6 @@ def update_order_status():
     flash(f"Order {order_id} status updated to '{next_status}'.", "success")
     return redirect(url_for("vendor_dashboard"))
 
-
-
 @app.route("/products")
 def products():
     category = request.args.get('category')
@@ -306,6 +305,7 @@ def product_detail(product_id):
         LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
         WHERE p.ProductID = :product_id
     """)
+    
     reviews = conn.execute(text("""
     SELECT r.Rating, r.Description, r.ImageURL, r.Date, u.Username
     FROM review r
@@ -314,6 +314,8 @@ def product_detail(product_id):
     ORDER BY r.Date DESC
 """), {"product_id": product_id}).mappings().all()
     
+    print("Reviews:", reviews)
+
     result = conn.execute(query, {"product_id": product_id}).fetchone()
     if not result:
         return "<h3>Product not found.</h3>"
@@ -513,25 +515,13 @@ def checkout():
     if not cart:
         return redirect(url_for('cart'))
     
-    cart, total_price = enrich_cart(cart)
+    cart, total_price = enrich_cart(cart)  # Reuse logic
 
     # Check if there is enough inventory for each item in the cart
     for item in cart:
         product = Product.query.get(item['product_id'])
         if product.InventoryAmount < item['quantity']:
             return render_template("checkout.html", products=cart, total_price=total_price, error="Not enough stock for some items.")
-
-    if request.method == 'POST':
-        card_exp_date = request.form['exp_date']
-        card_exp_date = datetime.strptime(card_exp_date, '%Y-%m')
-
-        # Get the current date
-        current_date = datetime.now()
-
-        # Check if the card is expired
-        if card_exp_date < current_date:
-            # If expired, show error message
-            return render_template("checkout.html", products=cart, total_price=total_price, error="Your credit card is expired.")
 
     if request.method == 'POST':
         # Payment form processing...
@@ -541,46 +531,59 @@ def checkout():
 
     return render_template("checkout.html", products=cart, total_price=total_price)
 def create_order(cart, total_price, billing_address):
-<<<<<<< HEAD
-    # Assuming the user ID is stored in session (adjust if needed)
-=======
->>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
     user_id = session.get('user_id')
     
-    # Step 1: Insert into the Orders table
     order_date = datetime.now()
     status = 'pending'
 
-    # Insert the order directly into the Orders table using text()
     db.session.execute(
-        text('''
-        INSERT INTO Orders (UserID, OrderDate, TotalPrice, Status)
-        VALUES (:user_id, :order_date, :total_price, :status)
-        '''),
-        {'user_id': user_id, 'order_date': order_date, 'total_price': total_price, 'status': status}
+        text("""
+            INSERT INTO Orders (UserID, OrderDate, TotalPrice, Status, BillingAddress)
+            VALUES (:user_id, :order_date, :total_price, :status, :billing_address)
+        """),
+        {
+            'user_id': user_id,
+            'order_date': datetime.now(),
+            'total_price': total_price,
+            'status': 'pending',
+            'billing_address': billing_address  # make sure this is passed to the function
+        }
     )
     db.session.commit()
 
-    # Step 2: Get the last inserted order ID (using text())
     order_id = db.session.execute(
         text('SELECT LAST_INSERT_ID()')
     ).fetchone()[0]
 
-    # Step 3: Insert items into the OrderItems table
     for item in cart:
         product_id = item['product_id']
         quantity = item['quantity']
         product = Product.query.get(product_id)
 
+        # Insert item into OrderItems table
         db.session.execute(
             text('''
             INSERT INTO OrderItems (OrderID, ProductID, Quantity, Price)
             VALUES (:order_id, :product_id, :quantity, :price)
-            '''),
+            '''), 
             {'order_id': order_id, 'product_id': product_id, 'quantity': quantity, 'price': product.price}
         )
-    
-    # Commit all changes
+
+        # Update inventory
+        new_inventory_amount = product.InventoryAmount - quantity
+        db.session.execute(
+            text('''
+            UPDATE Products
+            SET InventoryAmount = :new_inventory_amount,
+                StockStatus = CASE
+                    WHEN :new_inventory_amount <= 0 THEN 'Out of Stock'
+                    ELSE 'In Stock'
+                END
+            WHERE ProductID = :product_id
+            '''), 
+            {'new_inventory_amount': new_inventory_amount, 'product_id': product_id}
+        )
+
     db.session.commit()
 
     return order_id
@@ -588,8 +591,6 @@ def create_order(cart, total_price, billing_address):
 @app.route('/order_confirmation/<order_id>')
 def order_confirmation(order_id):
     return render_template("order_confirmation.html", order_id=order_id)
-
-
 
 @app.route("/vendor/manage") #vendor delete or edit product
 def manage_products():
@@ -608,7 +609,6 @@ def manage_products():
         products = result.fetchall()
 
     return render_template("manage.html", products=products)
-
 
 @app.route("/vendor/delete_product/<int:product_id>", methods=["POST"]) #for vendor to delete product route
 def delete_product(product_id):
@@ -634,7 +634,6 @@ def delete_product(product_id):
 
     return redirect(url_for("manage_products"))
 
-
 @app.route("/admin/manage", methods=["GET"])
 def admin_manage_products():
     if session.get("role") != "admin": #log out user who role is not admin
@@ -649,7 +648,6 @@ def admin_manage_products():
     products = conn.execute(query).fetchall()
 
     return render_template("admin.html", products=products)
-
 
 @app.route("/admin/delete_product/<int:product_id>", methods=["POST"])
 def admin_delete_product(product_id):
@@ -780,7 +778,6 @@ def edit_product(product_id):
 
     return render_template("edit_product.html", product=product)
 
-
 @app.route("/chat/<int:receiver_id>", methods=["GET", "POST"])
 def chat(receiver_id):
     sender_id = session.get("user_id") #get the id of user thats logged in
@@ -875,10 +872,6 @@ def chat_users():
     
     return render_template("chat_users.html", users=users, search_query=search_query, base_template=base_template)
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
 @app.route("/account")
 def account():
     user_id = session.get("user_id")
@@ -909,9 +902,10 @@ def submit_review(product_id):
     # Check if the user has purchased the product
     with engine.connect() as conn:
         purchase_check = conn.execute(text("""
-            SELECT 1 FROM ordercart o
-            JOIN orderitems oi ON o.OrderID = oi.OrderID
-            WHERE o.CustomerID = :customer_id AND oi.ProductID = :product_id
+            SELECT 1 
+            FROM Orders o
+            JOIN OrderItems oi ON o.OrderID = oi.OrderID
+            WHERE o.UserID = :customer_id AND oi.ProductID = :product_id
             LIMIT 1
         """), {
             "customer_id": customer_id,
@@ -925,7 +919,7 @@ def submit_review(product_id):
     # Insert the review
     with engine.begin() as conn:
         conn.execute(text("""
-            INSERT INTO review (CustomerID, ProductID, Rating, Description, ImageURL, Date)
+            INSERT INTO Review (CustomerID, ProductID, Rating, Description, ImageURL, Date)
             VALUES (:customer_id, :product_id, :rating, :description, :image_url, CURRENT_DATE())
         """), {
             "customer_id": customer_id,
@@ -1107,18 +1101,14 @@ def customer_complaints():
         query = text("""
             SELECT c.ComplaintID, c.Title, c.Status, p.Title AS ProductTitle
             FROM Complaints c
-            JOIN products p ON c.ProductID = p.ProductID
+            JOIN Products p ON c.ProductID = p.ProductID
             WHERE c.CustomerID = :customer_id
         """)
         complaints = conn.execute(query, {"customer_id": customer_id}).fetchall()
     
     return render_template("customer_complaints.html", complaints=complaints)
 
-<<<<<<< HEAD
-# Run the Flask application
-=======
   # Run the Flask application
 
->>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
 if __name__ == '__main__':
     app.run(debug=True)
