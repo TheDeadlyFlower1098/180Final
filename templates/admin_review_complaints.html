@@ -1,0 +1,105 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<div class="admin-complaints-section">
+  <h1 class="page-title">Review Customer Complaints</h1>
+
+  <!-- Pending Complaints -->
+  <div class="complaints-list">
+    <h2 class="section-title">Pending Complaints</h2>
+    {% if complaints.pending %}
+      <table class="complaint-table">
+        <thead>
+          <tr>
+            <th>Complaint Title</th>
+            <th>Description</th>
+            <th>Demand</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for complaint in complaints.pending %}
+          <tr>
+            <td>{{ complaint.title }}</td>
+            <td>{{ complaint.description }}</td>
+            <td>{{ complaint.category }}</td>
+            <td>{{ complaint.status }}</td>
+            <td>
+              <form action="{{ url_for('resolve_complaint', complaint_id=complaint.id) }}" method="POST">
+                <input type="hidden" name="action" value="confirm">
+                <button type="submit" class="btn btn-success">Resolve</button>
+              </form>
+              <form action="{{ url_for('resolve_complaint', complaint_id=complaint.id) }}" method="POST">
+                <input type="hidden" name="action" value="reject">
+                <button type="submit" class="btn btn-danger">Reject</button>
+              </form>
+            </td>            
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No pending complaints.</p>
+    {% endif %}
+  </div>
+
+  <!-- Confirmed Complaints -->
+  <div class="complaints-list">
+    <h2 class="section-title">Confirmed Complaints</h2>
+    {% if complaints.confirmed %}
+      <table class="complaint-table">
+        <thead>
+          <tr>
+            <th>Complaint Title</th>
+            <th>Description</th>
+            <th>Demand</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for complaint in complaints.confirmed %}
+          <tr>
+            <td>{{ complaint.title }}</td>
+            <td>{{ complaint.description }}</td>
+            <td>{{ complaint.category }}</td>
+            <td>{{ complaint.status }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No confirmed complaints.</p>
+    {% endif %}
+  </div>
+
+  <!-- Rejected Complaints -->
+  <div class="complaints-list">
+    <h2 class="section-title">Rejected Complaints</h2>
+    {% if complaints.rejected %}
+      <table class="complaint-table">
+        <thead>
+          <tr>
+            <th>Complaint Title</th>
+            <th>Description</th>
+            <th>Demand</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for complaint in complaints.rejected %}
+          <tr>
+            <td>{{ complaint.title }}</td>
+            <td>{{ complaint.description }}</td>
+            <td>{{ complaint.category }}</td>
+            <td>{{ complaint.status }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No rejected complaints.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -424,7 +424,13 @@ def add_to_cart(product_id):
     # Retrieve form data for color, size, and quantity
     color = request.form.get('color')
     size = request.form.get('size')
-    quantity = int(request.form.get('quantity', 1))
+    quantity = int(request.form['quantity'])
+    
+    product = Product.query.get(product_id)
+    
+    if product.InventoryAmount < quantity:
+        # If not enough stock, show error or just prevent adding to cart
+        return render_template("product_detail.html", product=product, error="Not enough stock available.")
 
     # Check if the item with selected color and size already exists in the cart
     product_in_cart = next((item for item in session['cart'] if item['product_id'] == product_id and item['color'] == color and item['size'] == size), None)
@@ -507,7 +513,25 @@ def checkout():
     if not cart:
         return redirect(url_for('cart'))
     
-    cart, total_price = enrich_cart(cart)  # Reuse logic
+    cart, total_price = enrich_cart(cart)
+
+    # Check if there is enough inventory for each item in the cart
+    for item in cart:
+        product = Product.query.get(item['product_id'])
+        if product.InventoryAmount < item['quantity']:
+            return render_template("checkout.html", products=cart, total_price=total_price, error="Not enough stock for some items.")
+
+    if request.method == 'POST':
+        card_exp_date = request.form['exp_date']
+        card_exp_date = datetime.strptime(card_exp_date, '%Y-%m')
+
+        # Get the current date
+        current_date = datetime.now()
+
+        # Check if the card is expired
+        if card_exp_date < current_date:
+            # If expired, show error message
+            return render_template("checkout.html", products=cart, total_price=total_price, error="Your credit card is expired.")
 
     if request.method == 'POST':
         # Payment form processing...
@@ -517,9 +541,45 @@ def checkout():
 
     return render_template("checkout.html", products=cart, total_price=total_price)
 def create_order(cart, total_price, billing_address):
-    # Simulate order creation
-    order_id = "ORD123"  # Replace with actual order ID logic
-    # Here, you can save the order to the database
+    # Assuming the user ID is stored in session (adjust if needed)
+    user_id = session.get('user_id')
+    
+    # Step 1: Insert into the Orders table
+    order_date = datetime.now()
+    status = 'pending'
+
+    # Insert the order directly into the Orders table using text()
+    db.session.execute(
+        text('''
+        INSERT INTO Orders (UserID, OrderDate, TotalPrice, Status)
+        VALUES (:user_id, :order_date, :total_price, :status)
+        '''),
+        {'user_id': user_id, 'order_date': order_date, 'total_price': total_price, 'status': status}
+    )
+    db.session.commit()
+
+    # Step 2: Get the last inserted order ID (using text())
+    order_id = db.session.execute(
+        text('SELECT LAST_INSERT_ID()')
+    ).fetchone()[0]
+
+    # Step 3: Insert items into the OrderItems table
+    for item in cart:
+        product_id = item['product_id']
+        quantity = item['quantity']
+        product = Product.query.get(product_id)
+
+        db.session.execute(
+            text('''
+            INSERT INTO OrderItems (OrderID, ProductID, Quantity, Price)
+            VALUES (:order_id, :product_id, :quantity, :price)
+            '''),
+            {'order_id': order_id, 'product_id': product_id, 'quantity': quantity, 'price': product.price}
+        )
+    
+    # Commit all changes
+    db.session.commit()
+
     return order_id
 
 @app.route('/order_confirmation/<order_id>')
@@ -870,6 +930,182 @@ def submit_review(product_id):
 
     flash("Your review has been submitted!", "success")
     return redirect(url_for('product_detail', product_id=product_id))
+
+@app.route("/create_complaint", methods=["GET", "POST"])
+def create_complaint():
+    if session.get("role") != "customer":
+        return redirect(url_for("login"))
+
+    user_id = session.get("user_id")
+
+    if request.method == "POST":
+        title = request.form["title"]
+        description = request.form["description"]
+        demand = request.form.get("demand")
+        product_id = request.form.get("product_id") 
+
+        try:
+            with engine.begin() as conn:
+                insert_complaint = text("""
+                    INSERT INTO Complaints (CustomerID, ProductID, Date, Title, Description, Demand)
+                    VALUES (:customer_id, :product_id, CURRENT_DATE, :title, :description, :demand)
+                """)
+                conn.execute(insert_complaint, {
+                    "customer_id": user_id,
+                    "product_id": product_id,
+                    "title": title,
+                    "description": description,
+                    "demand": demand
+                })
+            flash("Complaint submitted successfully!", "success")
+            return redirect(url_for("home2"))
+        except Exception as e:
+            return f"<h3>Error submitting complaint: {e}</h3>"
+
+    # Fetch ordered products for this customer, excluding those with confirmed complaints
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT p.ProductID, p.Title, o.OrderDate
+            FROM Orders o
+            JOIN OrderItems oi ON o.OrderID = oi.OrderID
+            JOIN Products p ON oi.ProductID = p.ProductID
+            WHERE o.UserID = :user_id
+            AND p.ProductID NOT IN (
+                SELECT ProductID FROM Complaints WHERE CustomerID = :user_id AND Status = 'confirmed'
+            )
+        """), {"user_id": user_id})
+
+        ordered_products = result.fetchall()
+
+    return render_template("create_complaint.html", ordered_products=ordered_products)
+
+@app.route("/admin/review_complaints", methods=["GET", "POST"])
+def admin_review_complaints():
+    if session.get("role") != "admin":
+        flash("Unauthorized access. Admins only.", "danger")
+        return redirect(url_for("login"))
+    
+    with engine.connect() as conn:
+        query = text("""
+            SELECT 
+                c.ComplaintID AS id,
+                c.Title AS title,
+                c.Description AS description,
+                c.Status AS status,
+                c.Demand AS category,
+                p.Title AS product_title,
+                u.Name AS customer_name
+            FROM Complaints c
+            JOIN Products p ON c.ProductID = p.ProductID
+            JOIN User u ON c.CustomerID = u.UserID
+        """)
+        complaints = conn.execute(query).fetchall()
+
+    
+    # Categorize complaints into pending, confirmed, and rejected
+    categorized_complaints = {
+        "pending": [],
+        "confirmed": [],
+        "rejected": []
+    }
+
+    for complaint in complaints:
+        if complaint.status == "pending":
+            categorized_complaints["pending"].append(complaint)
+        elif complaint.status == "confirmed": 
+            categorized_complaints["confirmed"].append(complaint)
+        elif complaint.status == "rejected":
+            categorized_complaints["rejected"].append(complaint)
+
+
+    return render_template("admin_review_complaints.html", complaints=categorized_complaints)
+
+@app.route("/admin/resolve_complaint/<int:complaint_id>", methods=["POST"])
+def resolve_complaint(complaint_id):
+    if session.get("role") != "admin":
+        flash("Unauthorized access. Admins only.", "danger")
+        return redirect(url_for("login"))
+    
+    action = request.form["action"]  # Now this should work since 'action' is part of the form
+    
+    status = 'rejected' if action == 'reject' else 'confirmed'
+    
+    try:
+        with engine.begin() as conn:
+            update_status = text("""
+                UPDATE Complaints
+                SET Status = :status
+                WHERE ComplaintID = :complaint_id
+            """)
+            conn.execute(update_status, {"status": status, "complaint_id": complaint_id})
+        
+        flash(f"Complaint {complaint_id} has been {status}.", "success")
+        return redirect(url_for("admin_review_complaints"))
+    except Exception as e:
+        flash(f"Error resolving complaint: {e}", "danger")
+        return redirect(url_for("admin_review_complaints"))
+
+@app.route("/admin/reject_complaint/<int:complaint_id>", methods=["POST"])
+def reject_complaint(complaint_id):
+    if session.get("role") != "admin":
+        flash("Unauthorized access. Admins only.", "danger")
+        return redirect(url_for("login"))
+    
+    try:
+        with engine.begin() as conn:
+            # Update the complaint status to 'rejected'
+            update_status = text("""
+                UPDATE Complaints
+                SET Status = 'rejected'
+                WHERE ComplaintID = :complaint_id
+            """)
+            conn.execute(update_status, {"complaint_id": complaint_id})
+        
+        flash(f"Complaint {complaint_id} has been rejected.", "success")
+        return redirect(url_for("admin_review_complaints"))
+    except Exception as e:
+        flash(f"Error rejecting complaint: {e}", "danger")
+        return redirect(url_for("admin_review_complaints"))
+
+@app.route("/admin/process_complaint/<int:complaint_id>", methods=["POST"])
+def process_complaint(complaint_id):
+    if session.get("role") != "admin":
+        flash("Unauthorized access. Admins only.", "danger")
+        return redirect(url_for("login"))
+    
+    # Process the complaint to the next stage: processing → complete
+    try:
+        with engine.begin() as conn:
+            update_status = text("""
+                UPDATE Complaints
+                SET Status = 'processing'
+                WHERE ComplaintID = :complaint_id AND Status = 'confirmed'
+            """)
+            conn.execute(update_status, {"complaint_id": complaint_id})
+        
+        flash(f"Complaint {complaint_id} is now processing.", "success")
+        return redirect(url_for("admin_review_complaints"))
+    except Exception as e:
+        flash(f"Error processing complaint: {e}", "danger")
+        return redirect(url_for("admin_review_complaints"))
+
+@app.route("/customer/complaints")
+def customer_complaints():
+    if session.get("role") != "customer":
+        return redirect(url_for("login"))
+    
+    customer_id = session.get("customer_id")
+    
+    with engine.connect() as conn:
+        query = text("""
+            SELECT c.ComplaintID, c.Title, c.Status, p.Title AS ProductTitle
+            FROM Complaints c
+            JOIN products p ON c.ProductID = p.ProductID
+            WHERE c.CustomerID = :customer_id
+        """)
+        complaints = conn.execute(query, {"customer_id": customer_id}).fetchall()
+    
+    return render_template("customer_complaints.html", complaints=complaints)
 
 # Run the Flask application
 if __name__ == '__main__':
