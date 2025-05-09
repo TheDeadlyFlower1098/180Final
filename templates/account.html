@@ -1,31 +1,35 @@
 {% extends base_template %}
 
 {% block content %}
-<h2>Account Information</h2>
-<div style="padding: 10px; border: 1px solid #ccc;">
-  <p><strong>Name:</strong> {{ user.Name }}</p>
-  <p><strong>Username:</strong> {{ user.Username }}</p>
-  <p><strong>Email:</strong> {{ user.Email }}</p>
-  <p><strong>Role:</strong> {{ user.Role }}</p>
-  <h3>Billing Addresses</h3>
-<ul>
-  {% for address in addresses %}
-    <li>
-      {{ address.AddressLine }}, {{ address.City }}, {{ address.State }}, {{ address.ZipCode }}, {{ address.Country }}
+<div class="account-page">
+  <h2 class="account-title">Account Information</h2>
+  <div class="account-info">
+    <p><strong>Name:</strong> {{ user.Name }}</p>
+    <p><strong>Username:</strong> {{ user.Username }}</p>
+    <p><strong>Email:</strong> {{ user.Email }}</p>
+    <p><strong>Role:</strong> {{ user.Role }}</p>
+  </div>
+
+  <h3 class="address-title">Billing Addresses</h3>
+  <ul class="address-list">
+    {% for address in addresses %}
+    <li class="address-item">
+      <p>{{ address.AddressLine }}, {{ address.City }}, {{ address.State }}, {{ address.ZipCode }}, {{ address.Country }}</p>
       {% if address.IsDefault %}
-        <strong>(Default)</strong>
+      <strong class="default-label">(Default)</strong>
       {% else %}
-        <form method="POST" action="{{ url_for('set_default_address', address_id=address.AddressID) }}">
-          <button type="submit">Set as Default</button>
-        </form>
+      <form method="POST" action="{{ url_for('set_default_address', address_id=address.AddressID) }}">
+        <button type="submit" class="btn-default">Set as Default</button>
+      </form>
       {% endif %}
-      <a href="{{ url_for('edit_address', address_id=address.AddressID) }}">Edit</a>
-      <a href="{{ url_for('delete_address', address_id=address.AddressID) }}">Delete</a>
+      <a href="{{ url_for('edit_address', address_id=address.AddressID) }}" class="btn-default">Edit</a>
+      <form method="POST" action="{{ url_for('delete_address', address_id=address.AddressID) }}" class="address-delete-form">
+        <button type="submit" class="btn-default">Delete</button>
+      </form>
     </li>
-  {% endfor %}
-</ul>
+    {% endfor %}
+  </ul>
 
-<a href="{{ url_for('add_address') }}">Add New Address</a>
-
+  <a href="{{ url_for('add_address') }}" class="btn-add-address">Add New Address</a>
 </div>
 {% endblock %}

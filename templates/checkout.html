@@ -50,7 +50,7 @@
                 Enter a new address:
             </label>
 
-            <div id="new-address-fields" style="margin-top: 10px;">
+            <div id="new-address-fields" style="margin-top: 10px; display: none;">
                 <input type="text" name="new_address_line" placeholder="Address Line"><br>
                 <input type="text" name="new_city" placeholder="City"><br>
                 <input type="text" name="new_state" placeholder="State"><br>
@@ -58,7 +58,7 @@
                 <input type="text" name="new_country" placeholder="Country"><br>
             </div>
 
-            <input type="text" id="billing_address" name="billing_address" required>
+            <input type="hidden" id="billing_address" name="billing_address" required>
 
             <button type="submit">Place Order</button>
         </form>
@@ -71,6 +71,7 @@
 <script>
     const radios = document.querySelectorAll('input[name="address_id"]');
     const newAddressFields = document.getElementById('new-address-fields');
+    const billingAddressInput = document.getElementById('billing_address');
 
     function toggleNewAddress() {
         const selected = Array.from(radios).find(r => r.checked);
@@ -78,6 +79,7 @@
             newAddressFields.style.display = "block";
         } else {
             newAddressFields.style.display = "none";
+            billingAddressInput.value = selected ? selected.value : '';
         }
     }
 
