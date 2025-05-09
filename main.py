@@ -2,7 +2,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from sqlalchemy import create_engine, text
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import login_required
 from collections import defaultdict
 from datetime import datetime
 import hashlib
@@ -306,6 +305,7 @@ def product_detail(product_id):
         LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
         WHERE p.ProductID = :product_id
     """)
+    
     reviews = conn.execute(text("""
     SELECT r.Rating, r.Description, r.ImageURL, r.Date, u.Username
     FROM review r
@@ -314,6 +314,8 @@ def product_detail(product_id):
     ORDER BY r.Date DESC
 """), {"product_id": product_id}).mappings().all()
     
+    print("Reviews:", reviews)
+
     result = conn.execute(query, {"product_id": product_id}).fetchone()
     if not result:
         return "<h3>Product not found.</h3>"
@@ -509,7 +511,6 @@ def update_cart():
 
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
-    user_id = session.get('user_id')
     cart = session.get('cart', [])
     if not cart:
         return redirect(url_for('cart'))
@@ -523,77 +524,66 @@ def checkout():
             return render_template("checkout.html", products=cart, total_price=total_price, error="Not enough stock for some items.")
 
     if request.method == 'POST':
-        card_exp_date = request.form['exp_date']
-        card_exp_date = datetime.strptime(card_exp_date, '%Y-%m')
-
-        # Get the current date
-        current_date = datetime.now()
-
-        # Check if the card is expired
-        if card_exp_date < current_date:
-            # If expired, show error message
-            return render_template("checkout.html", products=cart, total_price=total_price, error="Your credit card is expired.")
-
-    if request.method == 'POST':
-        selected_address_id = request.form.get("address_id")
-        new_address = request.form.get("new_address")
-
-        billing_address = None
-        if selected_address_id == "new" and new_address:
-            billing_address = new_address
-        else:
-            with engine.connect() as conn:
-                result = conn.execute(text("SELECT AddressLine FROM Address WHERE AddressID = :aid"), {"aid": selected_address_id}).fetchone()
-                billing_address = result[0] if result else None
-
-        if not billing_address:
-            flash("Please provide a valid address.", "danger")
-            return redirect(url_for("checkout"))
-
-        order_id = create_order(cart, total_price, billing_address)
+        # Payment form processing...
+        order_id = create_order(cart, total_price, request.form['billing_address'])
         session['cart'] = []
         return redirect(url_for('order_confirmation', order_id=order_id))
 
-    return render_template("checkout.html", products=cart, total_price=total_price, addresses=addresses, default_address=default_address)
-
+    return render_template("checkout.html", products=cart, total_price=total_price)
 def create_order(cart, total_price, billing_address):
-    # Assuming the user ID is stored in session (adjust if needed)
     user_id = session.get('user_id')
     
-    # Step 1: Insert into the Orders table
     order_date = datetime.now()
     status = 'pending'
 
-    # Insert the order directly into the Orders table using text()
     db.session.execute(
-        text('''
-        INSERT INTO Orders (UserID, OrderDate, TotalPrice, Status)
-        VALUES (:user_id, :order_date, :total_price, :status)
-        '''),
-        {'user_id': user_id, 'order_date': order_date, 'total_price': total_price, 'status': status}
+        text("""
+            INSERT INTO Orders (UserID, OrderDate, TotalPrice, Status, BillingAddress)
+            VALUES (:user_id, :order_date, :total_price, :status, :billing_address)
+        """),
+        {
+            'user_id': user_id,
+            'order_date': datetime.now(),
+            'total_price': total_price,
+            'status': 'pending',
+            'billing_address': billing_address  # make sure this is passed to the function
+        }
     )
     db.session.commit()
 
-    # Step 2: Get the last inserted order ID (using text())
     order_id = db.session.execute(
         text('SELECT LAST_INSERT_ID()')
     ).fetchone()[0]
 
-    # Step 3: Insert items into the OrderItems table
     for item in cart:
         product_id = item['product_id']
         quantity = item['quantity']
         product = Product.query.get(product_id)
 
+        # Insert item into OrderItems table
         db.session.execute(
             text('''
             INSERT INTO OrderItems (OrderID, ProductID, Quantity, Price)
             VALUES (:order_id, :product_id, :quantity, :price)
-            '''),
+            '''), 
             {'order_id': order_id, 'product_id': product_id, 'quantity': quantity, 'price': product.price}
         )
-    
-    # Commit all changes
+
+        # Update inventory
+        new_inventory_amount = product.InventoryAmount - quantity
+        db.session.execute(
+            text('''
+            UPDATE Products
+            SET InventoryAmount = :new_inventory_amount,
+                StockStatus = CASE
+                    WHEN :new_inventory_amount <= 0 THEN 'Out of Stock'
+                    ELSE 'In Stock'
+                END
+            WHERE ProductID = :product_id
+            '''), 
+            {'new_inventory_amount': new_inventory_amount, 'product_id': product_id}
+        )
+
     db.session.commit()
 
     return order_id
@@ -882,7 +872,6 @@ def chat_users():
     
     return render_template("chat_users.html", users=users, search_query=search_query, base_template=base_template)
 
-
 @app.route("/account")
 def account():
     user_id = session.get("user_id")
@@ -892,46 +881,12 @@ def account():
 
     with engine.connect() as conn:
         user = conn.execute(text("SELECT * FROM User WHERE UserID = :uid"), {"uid": user_id}).fetchone()
-        addresses = conn.execute(text("SELECT * FROM Address WHERE UserID = :uid"), {"uid": user_id}).fetchall()
 
-    base_template = "vendor_base.html" if session.get("role", "customer") == "vendor" else "base.html"
-    return render_template("account.html", user=user, addresses=addresses, base_template=base_template)
+    # Determine base template based on role
+    role = session.get("role", "customer")
+    base_template = "vendor_base.html" if role == "vendor" else "base.html"
 
-@app.route("/add_address", methods=["GET", "POST"])
-@login_required  # Optional: if you use login-based access
-def add_address():
-    if request.method == "POST":
-        street = request.form.get("street")
-        city = request.form.get("city")
-        state = request.form.get("state")
-        zip_code = request.form.get("zip_code")
-        country = request.form.get("country")
-        is_default = request.form.get("is_default") == "on"
-        user_id = session.get("user_id")  # Adjust if you use a different session key
-
-        if not all([street, city, state, zip_code, country]):
-            error = "All fields are required."
-            return render_template("add_address.html", error=error)
-
-        # If is_default is true, unset existing default
-        if is_default:
-            Address.query.filter_by(user_id=user_id, is_default=True).update({"is_default": False})
-        
-        new_address = Address(
-            user_id=user_id,
-            street=street,
-            city=city,
-            state=state,
-            zip_code=zip_code,
-            country=country,
-            is_default=is_default
-        )
-        db.session.add(new_address)
-        db.session.commit()
-
-        return redirect(url_for("account"))  # Or another route
-
-    return render_template("add_address.html")
+    return render_template("account.html", user=user, base_template=base_template)
 
 @app.route('/product/<int:product_id>/review', methods=['POST'])
 def submit_review(product_id):
@@ -948,15 +903,14 @@ def submit_review(product_id):
     with engine.connect() as conn:
         purchase_check = conn.execute(text("""
             SELECT 1 
-            FROM `Orders` o
-            JOIN `Orderitems` oi ON o.OrderID = oi.OrderID
-            WHERE o.CustomerID = :customer_id AND oi.ProductID = :product_id
+            FROM Orders o
+            JOIN OrderItems oi ON o.OrderID = oi.OrderID
+            WHERE o.UserID = :customer_id AND oi.ProductID = :product_id
             LIMIT 1
         """), {
             "customer_id": customer_id,
             "product_id": product_id
         }).fetchone()
-
 
         if not purchase_check:
             flash("You can only review products you've purchased.", "danger")
@@ -965,7 +919,7 @@ def submit_review(product_id):
     # Insert the review
     with engine.begin() as conn:
         conn.execute(text("""
-            INSERT INTO review (CustomerID, ProductID, Rating, Description, ImageURL, Date)
+            INSERT INTO Review (CustomerID, ProductID, Rating, Description, ImageURL, Date)
             VALUES (:customer_id, :product_id, :rating, :description, :image_url, CURRENT_DATE())
         """), {
             "customer_id": customer_id,
@@ -1147,18 +1101,14 @@ def customer_complaints():
         query = text("""
             SELECT c.ComplaintID, c.Title, c.Status, p.Title AS ProductTitle
             FROM Complaints c
-            JOIN products p ON c.ProductID = p.ProductID
+            JOIN Products p ON c.ProductID = p.ProductID
             WHERE c.CustomerID = :customer_id
         """)
         complaints = conn.execute(query, {"customer_id": customer_id}).fetchall()
     
     return render_template("customer_complaints.html", complaints=complaints)
 
-<<<<<<< HEAD
-# Run the Flask application
-=======
   # Run the Flask application
 
->>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
 if __name__ == '__main__':
     app.run(debug=True)

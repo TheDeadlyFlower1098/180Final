@@ -64,10 +64,6 @@
             <button class="cta-button" type="submit">Add to Cart</button>
         </form>
 
-        <div class="product-nav-buttons" style="margin-top: 20px;">
-            <a href="{{ url_for('products') }}" class="cta-button" style="margin-right: 10px;">← Back to Products</a>
-        </div>
-
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <ul class="flashes">
@@ -77,33 +73,39 @@
                 </ul>
             {% endif %}
         {% endwith %}
+        <hr class="section-divider">
 
-        <h3>Leave a Review</h3>
-        <form action="{{ url_for('submit_review', product_id=product.ProductID) }}" method="POST">
-            <label>Rating (1–5): <input type="number" name="rating" min="1" max="5" required></label><br>
-            <label>Comment:</label><br>
-            <textarea name="description" required></textarea><br>
-            <label>Image URL (optional): <input type="text" name="image_url"></label><br>
-            <button style="background-color: pink;" type="submit">Submit Review</button>
-        </form>
+        <div class="reviews-section">
+            <h3 class="section-title">Leave a Review</h3>
+            <form action="{{ url_for('submit_review', product_id=product.ProductID) }}" method="POST" class="review-form">
+                <label>Rating (1–5): <input type="number" name="rating" min="1" max="5" required></label><br>
+                <label>Comment:</label><br>
+                <textarea name="description" required></textarea><br>
+                <label>Image URL (optional): <input type="text" name="image_url"></label><br>
+                <button class="cta-button" type="submit">Submit Review</button>
+            </form>
+        
+            <h3 class="section-title">Customer Reviews</h3>
+            {% if reviews %}
+                {% for review in reviews %}
+                    <div class="review-block">
+                        <strong>{{ review.Username }}</strong> rated it {{ review.Rating }}/5<br>
+                        <p>{{ review.Description }}</p>
+                        {% if review.ImageURL %}
+                            <img src="{{ review.ImageURL }}" alt="Review Image" class="review-image"><br>
+                        {% endif %}
+                        <small class="review-date">{{ review.Date }}</small>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>No reviews yet.</p>
+            {% endif %}
+        </div>        
 
-        <hr>
-        <h3>Customer Reviews</h3>
-        {% if reviews %}
-            {% for review in reviews %}
-                <div class="review-block" style="margin-bottom: 20px;">
-                    <strong>{{ review.Username }}</strong> rated it {{ review.Rating }}/5<br>
-                    <p>{{ review.Description }}</p>
-                    {% if review.ImageURL %}
-                        <img src="{{ review.ImageURL }}" alt="Review Image" style="max-width: 200px;"><br>
-                    {% endif %}
-                    <small>{{ review.Date }}</small>
-                </div>
-            {% endfor %}
-        {% else %}
-            <p>No reviews yet.</p>
-        {% endif %}
-
+        <div class="product-nav-buttons" style="margin-top: 20px;">
+            <a href="{{ url_for('products') }}" class="cta-button" style="margin-right: 10px;">← Back to Products</a>
+        </div>
+        
     </div>
 </div>
 {% endblock %}

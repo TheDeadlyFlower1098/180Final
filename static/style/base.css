@@ -675,6 +675,66 @@ form button {
   margin-bottom: 12px;
 }
 
+/* Styling for the reviews section */.section-divider {
+  margin: 40px 0;
+  border: none;
+  border-top: 2px dashed #ddd;
+}
+
+.reviews-section {
+  background-color: #fff0f5;
+  padding: 30px;
+  margin-top: 40px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.review-form {
+  margin-bottom: 40px;
+}
+
+.review-form label,
+.review-form textarea,
+.review-form input[type="text"],
+.review-form input[type="number"] {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  color: #555;
+}
+
+.review-form textarea {
+  height: 100px;
+  resize: vertical;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.review-block {
+  background: #fff;
+  border-left: 4px solid #ff69b4;
+  padding: 15px 20px;
+  margin-bottom: 20px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+
+.review-image {
+  max-width: 200px;
+  margin-top: 10px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.review-date {
+  display: block;
+  color: #999;
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+
 /* Orders Table Styling */
 .order-list {
   display: flex;
