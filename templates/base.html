@@ -23,10 +23,17 @@
     <a href="/">Home</a>  <!-- Home route -->
     <a href="/products">Products</a>  <!-- Products page -->
     {% if session.get('username') %}
+<<<<<<< HEAD
+    <!-- Show only if logged in -->
+    <a href="{{ url_for('chat_users') }}">📨 Chat</a>
+    <a href="{{ url_for('account') }}">👤 Account Info</a>
+
+=======
 
     <a href="{{ url_for('account') }}">👤 Account Info</a>
     <!-- Show only if logged in -->
     <a href="{{ url_for('chat_users') }}">📨 Chat</a>
+>>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
     <a href="{{ url_for('create_complaint') }}">Create Complaint</a>
     <a href="{{ url_for('logout') }}">Logout</a>
   {% else %}
