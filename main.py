@@ -328,16 +328,18 @@ def product_detail(product_id):
 # Cart item model for SQLAlchemy (manages cart items in the database)
 class CartItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('Products.ProductID'), nullable=False)
     quantity = db.Column(db.Integer, default=1)
     product = db.relationship('Product', back_populates='cart_items')
 
 # Product model for SQLAlchemy (manages product information in the database)
 class Product(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    price = db.Column(db.Float, nullable=False)
+    __tablename__ = 'Products'
+    ProductID = db.Column(db.Integer, primary_key=True)
+    Title = db.Column(db.String(200))
+    # Add the rest of your fields here...
     cart_items = db.relationship('CartItem', back_populates='product')
+
 
 
 from datetime import datetime
@@ -541,10 +543,7 @@ def checkout():
 
     return render_template("checkout.html", products=cart, total_price=total_price)
 def create_order(cart, total_price, billing_address):
-<<<<<<< HEAD
     # Assuming the user ID is stored in session (adjust if needed)
-=======
->>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
     user_id = session.get('user_id')
     
     # Step 1: Insert into the Orders table
@@ -875,10 +874,6 @@ def chat_users():
     
     return render_template("chat_users.html", users=users, search_query=search_query, base_template=base_template)
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
 @app.route("/account")
 def account():
     user_id = session.get("user_id")
@@ -906,10 +901,10 @@ def submit_review(product_id):
     description = request.form.get('description')
     image_url = request.form.get('image_url')  # optional
 
-    # Check if the user has purchased the product
+    # check if the user has purchased the product
     with engine.connect() as conn:
         purchase_check = conn.execute(text("""
-            SELECT 1 FROM ordercart o
+            SELECT 1 FROM orders o
             JOIN orderitems oi ON o.OrderID = oi.OrderID
             WHERE o.CustomerID = :customer_id AND oi.ProductID = :product_id
             LIMIT 1
@@ -922,7 +917,7 @@ def submit_review(product_id):
             flash("You can only review products you've purchased.", "danger")
             return redirect(url_for('product_detail', product_id=product_id))
 
-    # Insert the review
+   #insert the review to databse
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO review (CustomerID, ProductID, Rating, Description, ImageURL, Date)
@@ -1114,11 +1109,6 @@ def customer_complaints():
     
     return render_template("customer_complaints.html", complaints=complaints)
 
-<<<<<<< HEAD
 # Run the Flask application
-=======
-  # Run the Flask application
-
->>>>>>> 8b5ccffc733f6ef40a69270d33605d45173b9913
 if __name__ == '__main__':
     app.run(debug=True)
