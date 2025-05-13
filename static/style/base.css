@@ -273,19 +273,6 @@ flex-wrap: wrap;
   color: #ff69b4;
 }
 
-.cta-button {
-  background-color: #ff69b4;
-  color: white;
-  padding: 12px 24px;
-  text-decoration: none;
-  border-radius: 6px;
-  font-weight: bold;
-  text-align: center;
-  display: inline-block;
-  margin-top: 20px;
-  transition: background-color 0.3s;
-}
-
 .cta-button:hover {
   background-color: #ff1493;
 }
@@ -521,19 +508,6 @@ background-color: #ff1493;
   z-index: 1000;
 }
 
-.cta-button {
-  padding: 10px 16px;
-  background-color: #ff69b4;
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: bold;
-  transition: background-color 0.3s ease;
-}
-.cta-button:hover {
-  background-color: #ff69b4;
-}
-
 .cart-button:hover {
   background-color: #ff1493;
 }
@@ -709,24 +683,6 @@ form button {
   border-color: #8e44ad;
   outline: none;
   background-color: #fff;
-}
-
-.cta-button {
-  margin-top: 20px;
-  width: 100%;
-  padding: 12px;
-  background-color:#ff1493;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.cta-button:hover {
-  background-color: #d10c75;
 }
 
 .flashes {

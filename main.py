@@ -689,16 +689,17 @@ def delete_product(product_id):
 
 @app.route("/admin/manage", methods=["GET"])
 def admin_manage_products():
-    if session.get("role") != "admin": #log out user who role is not admin
+    if session.get("role") != "admin":
         flash("Unauthorized access. Admins only.", "danger")
         return redirect(url_for("login"))
 
-    query = text("""
-        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
-        FROM Products p
-        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
-    """)
-    products = conn.execute(query).fetchall()
+    with engine.begin() as conn:
+        query = text("""
+            SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL
+            FROM Products p
+            LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+        """)
+        products = conn.execute(query).fetchall()
 
     return render_template("admin.html", products=products)
 
