@@ -32,8 +32,19 @@
             <h3>{{ product.Title }}</h3>  <!-- Display the product title -->
             
             <!-- Display the product's discounted price, formatted to two decimal places -->
-            <p class="product-price">${{ '%.2f'|format(product.DiscountedPrice) }}</p>
-            
+            {% if product.OriginalPrice and product.OriginalPrice > product.DiscountedPrice %}
+                <p class="product-price">
+                    <span class="original-price" style="text-decoration: line-through; color: #888;">
+                        ${{ '%.2f'|format(product.OriginalPrice) }}
+                    </span>
+                    <span class="discounted-price" style="color: #e60000; font-weight: bold;">
+                        ${{ '%.2f'|format(product.DiscountedPrice) }}
+                    </span>
+                </p>
+            {% else %}
+                <p class="product-price">${{ '%.2f'|format(product.DiscountedPrice) }}</p>
+            {% endif %}
+
             <!-- Display the product's category -->
             <p class="product-category">Category: {{ product.Category }}</p>
             

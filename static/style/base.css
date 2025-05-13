@@ -1212,3 +1212,14 @@ form button {
 .edit-address-page .btn-secondary:hover {
   background-color: #ccc;
 }
+
+.original-price {
+    text-decoration: line-through;
+    color: #888;
+    margin-right: 8px;
+}
+
+.discounted-price {
+    color: #e60000;
+    font-weight: bold;
+}

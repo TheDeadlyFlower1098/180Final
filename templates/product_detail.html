@@ -86,6 +86,27 @@
             </form>
         
             <h3 class="section-title">Customer Reviews</h3>
+            <form method="get" class="review-filter-form">
+            <label for="rating">Filter by Rating:</label>
+            <select name="rating" id="rating">
+                <option value="">All Ratings</option>
+                {% for star in range(5, 0, -1) %}
+                <option value="{{ star }}" {% if rating_filter == star %}selected{% endif %}>
+                    {{ star }}★
+                </option>
+                {% endfor %}
+            </select>
+
+            <label for="sort">Sort by:</label>
+            <select name="sort" id="sort">
+                <option value="newest" {% if sort == "newest" %}selected{% endif %}>Newest</option>
+                <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Oldest</option>
+            </select>
+
+            <button type="submit">Apply</button>
+        </form>
+
+
             {% if reviews %}
                 {% for review in reviews %}
                     <div class="review-block">

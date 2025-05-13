@@ -272,12 +272,13 @@ def products():
     availability = request.args.get('availability')  # 'in' or 'out'
 
     query_base = """
-        SELECT p.ProductID, p.Title, p.DiscountedPrice, pi.ImageURL, p.Color, p.Size, 
-               p.InventoryAmount, p.Category
+        SELECT p.ProductID, p.Title, p.DiscountedPrice, p.OriginalPrice, pi.ImageURL,
+            p.Color, p.Size, p.InventoryAmount, p.Category
         FROM Products p
         LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
         WHERE 1=1
     """
+
     filters = {}
     if category:
         query_base += " AND p.Category = :category"
@@ -299,35 +300,68 @@ def products():
 
 @app.route("/product/<int:product_id>")
 def product_detail(product_id):
-    query = text("""
-        SELECT p.ProductID, p.Title, p.Description, p.DiscountedPrice, p.Category, 
-               p.Color, p.Size, p.InventoryAmount, p.WarrantyPeriod, pi.ImageURL
-        FROM Products p
-        LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
-        WHERE p.ProductID = :product_id
-    """)
-    
-    reviews = conn.execute(text("""
-    SELECT r.Rating, r.Description, r.ImageURL, r.Date, u.Username
-    FROM review r
-    JOIN user u ON r.CustomerID = u.UserID
-    WHERE r.ProductID = :product_id
-    ORDER BY r.Date DESC
-"""), {"product_id": product_id}).mappings().all()
-    
-    print("Reviews:", reviews)
+    from sqlalchemy import text
+    from datetime import datetime
 
-    result = conn.execute(query, {"product_id": product_id}).fetchone()
-    if not result:
-        return "<h3>Product not found.</h3>"
+    # --- Get filters from query parameters ---
+    rating_filter_raw = request.args.get("rating")
+    rating_filter = int(rating_filter_raw) if rating_filter_raw and rating_filter_raw.isdigit() else None
+    sort = request.args.get("sort", "newest")
 
-    product = dict(result._mapping)
-    product["colors"] = product["Color"].split() if product["Color"] else []
-    product["sizes"] = product["Size"].split() if product["Size"] else []
-    product["categories"] = product["Category"].split() if product["Category"] else []
-    return render_template("product_detail.html", product=product, current_time=datetime.utcnow(), reviews=reviews)
+    # --- Base review query ---
+    base_query = """
+        SELECT r.Rating, r.Description, r.ImageURL, r.Date, u.Username
+        FROM review r
+        JOIN user u ON r.CustomerID = u.UserID
+        WHERE r.ProductID = :product_id
+    """
 
+    # --- Add optional rating filter ---
+    if rating_filter:
+        base_query += " AND r.Rating = :rating_filter"
 
+    # --- Add sorting ---
+    if sort == "oldest":
+        base_query += " ORDER BY r.Date ASC"
+    else:
+        base_query += " ORDER BY r.Date DESC"
+
+    with engine.connect() as conn:
+        # Fetch product info
+        product_query = text("""
+            SELECT p.ProductID, p.Title, p.Description, p.DiscountedPrice, p.Category, 
+                   p.Color, p.Size, p.InventoryAmount, p.WarrantyPeriod, pi.ImageURL
+            FROM Products p
+            LEFT JOIN ProductImages pi ON p.ProductID = pi.ProductID
+            WHERE p.ProductID = :product_id
+        """)
+        product_result = conn.execute(product_query, {"product_id": product_id}).fetchone()
+
+        if not product_result:
+            return "<h3>Product not found.</h3>"
+
+        # Prepare product dict
+        product = dict(product_result._mapping)
+        product["colors"] = product["Color"].split() if product["Color"] else []
+        product["sizes"] = product["Size"].split() if product["Size"] else []
+        product["categories"] = product["Category"].split() if product["Category"] else []
+
+        # Fetch filtered reviews
+        review_query = text(base_query)
+        review_params = {"product_id": product_id}
+        if rating_filter:
+            review_params["rating_filter"] = rating_filter
+
+        reviews = conn.execute(review_query, review_params).mappings().all()
+
+    return render_template(
+        "product_detail.html",
+        product=product,
+        reviews=reviews,
+        current_time=datetime.utcnow(),
+        rating_filter=rating_filter,
+        sort=sort
+    )
 
 # Cart item model for SQLAlchemy (manages cart items in the database)
 class CartItem(db.Model):
